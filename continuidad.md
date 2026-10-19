@@ -1,191 +1,161 @@
 # Continuidad — Prueba técnica PHP Junior · MisterPlan
 
-> **Última actualización:** 17/10/2026 · **Fase actual:** cierre de la Fase 1 (auditoría y plan aprobado). **No existe código de la aplicación.**
+> **Última actualización:** 19/10/2026 · **Fase actual:** Fases 2 y 3 cerradas. **Siguiente: Fase 4 (API, validación y errores).**
 > Este documento sirve para retomar el proyecto en otra sesión sin repetir la investigación. Si algo de aquí contradice al código, **manda el código**.
 
 ---
 
 ## 1. Contexto y objetivo
 
-- **Empresa:** MisterPlan, empresa española de software turístico. **Puesto:** Desarrollador/a Junior PHP. El trabajo es presencial en Cáceres durante los primeros meses.
-- **Objetivo:** desarrollar una aplicación de **gestión de reservas de alojamiento** que incluya:
-  1. una API JSON en PHP nativo;
+- **Empresa:** MisterPlan, empresa española de software turístico. **Puesto:** Desarrollador/a Junior PHP (presencial en Cáceres los primeros meses).
+- **Objetivo:** aplicación de **gestión de reservas de alojamiento** con:
+  1. API JSON en PHP nativo;
   2. vistas renderizadas en servidor con Twig;
-  3. una interfaz con HTML, CSS y JavaScript que use la API sin recargar la página.
-- **Prioridad de evaluación:** backend y seguridad, por delante del diseño visual.
+  3. interfaz HTML + CSS + JavaScript que use la API sin recargar.
+- **Prioridad de evaluación:** backend y seguridad. «Si no llegas, prioriza backend».
 - **Objetivo personal:** entender y poder **defender** cada decisión en la entrevista.
 
-### Fuentes disponibles y limitaciones
+### Fuentes
 
 | Fuente | Disponible | Nota |
 |---|---|---|
-| Enunciado original de MisterPlan (PDF o correo) | ❌ **No** | El enunciado se ha reconstruido a partir de la descripción del Project de claude.ai y del «Prompt maestro» redactado por Coral. **Hay que contrastarlo con el original.** |
-| Descripción del Project «Prueba técnica MisterPlan» | ✅ | Es la fuente principal de requisitos. |
-| Prompt maestro de desarrollo, por fases | ✅ | Define la forma de trabajo y los criterios de aceptación. |
-| Conversación «Respuesta oferta Junior PHP» | ✅, resumen | Contiene la respuesta a Arturo, el recruiter, y confirma la presencialidad en Cáceres. |
-| Repositorio en GitHub `coralormad/pruebatecnicaMP` | ✅ | Está vinculado al Project. Solo contiene un `README.md` con el título. |
-| Carpeta local del proyecto | ❌ | Todavía no está conectada a Claude. El estado se ha verificado con las salidas de terminal que pegó Coral. |
+| **Enunciado original de MisterPlan** | ✅ | Está en las instrucciones del Project. Contrastado el 17/10: no cambia la arquitectura. |
+| Descripción del Project | ✅ | Requisitos ampliados y forma de trabajo. |
+| Repositorio `coralormad/pruebatecnicaMP` | ✅ | Rama `main`, sincronizado con el Project. |
+| Carpeta local `C:\dev\pruebatecnicaMP` | ✅ **Conectada a Claude** desde el 19/10 | Claude puede leer y escribir archivos. **No** tiene terminal en el equipo: Coral ejecuta los comandos y pega la salida. |
+
+### Lo que el enunciado original aclara
+
+- Plazo: **sin límite**. Tests: **bonus** (se hacen igualmente).
+- Solo **cancelar** es obligatorio en la interfaz; confirmar desde la UI es opcional.
+- **No** se piden paginación ni control de solapes entre reservas → fuera de alcance, se mencionan en el README.
+- `|raw` está permitido si se justifica en el README (decisión: no usarlo).
+- Formato de fechas e importes dentro de las plantillas Twig.
+- El listado y el detalle son de **reservas**, no de alojamientos (el alojamiento es solo un campo de texto).
 
 ---
 
-## 2. Requisitos (resumen verificable)
+## 2. Requisitos (resumen)
 
-### Tecnologías y restricciones
-
-- PHP nativo, **sin Laravel ni Symfony**.
-- MySQL o MariaDB, con PDO y consultas preparadas.
-- **Twig es obligatorio.**
-- HTML semántico, CSS responsive y JavaScript vanilla. Se puede usar jQuery solo si está justificado.
-- Composer y, si aplica, PHPUnit.
-- Git y GitHub, con **commits pequeños y reales**.
-- Despliegue con una **URL pública verificada**.
-- Archivo SQL importable con DDL y datos de ejemplo.
-- README completo, incluido el análisis de **1.000 reservas por hora**.
-
-### Modelo de datos
-
-- **`reserva`**:
-  - `id`
-  - `nombre_huesped`
-  - `email_huesped`
-  - `nombre_alojamiento`
-  - `fecha_entrada`
-  - `fecha_salida`
-  - `estado`: `pendiente`, `confirmada` o `cancelada`
-  - `importe`
-  - `notas`
-  - `fecha_creacion`
-- **`reserva_evento`**:
-  - `id`
-  - `reserva_id` como clave foránea
-  - `tipo`
-  - `descripcion`
-  - `fecha_creacion`
-- Debe registrarse un evento al **crear una reserva** y en cada **cambio de estado válido**.
-- La reserva y su evento deben guardarse dentro de la **misma transacción**.
-
-### API
-
-| Método | Ruta | Función |
-|---|---|---|
-| GET | `/api/reservas` | Lista las reservas. Permite combinar filtros por estado, fechas y nombre del huésped. |
-| GET | `/api/reservas/{id}` | Devuelve el detalle de una reserva y, previsiblemente, su historial. |
-| POST | `/api/reservas` | Crea una reserva y devuelve **201**. |
-| PATCH | `/api/reservas/{id}/estado` | Cambia el estado a `confirmada` o `cancelada`. |
-
-Códigos HTTP previstos: 200, 201, 400, 404, 405, 409, 422 y 500. **No se deben exponer trazas, SQL ni credenciales.**
-
-### Vistas Twig
-
-- **Listado:**
-  - tabla responsive;
-  - filtros;
-  - enlace al detalle;
-  - acción para cancelar;
-  - estados visuales.
-- **Detalle:**
-  - datos completos;
-  - historial en forma de línea temporal.
-- Uso de una **plantilla base** con `extends` y `block`.
-- Autoescape activo y **sin usar `|raw`**.
-
-### JavaScript
-
-La interfaz debe permitir:
-
-- filtrar sin recargar la página;
-- crear reservas mediante un formulario;
-- validar en cliente;
-- mostrar los errores devueltos por la API;
-- cancelar con confirmación;
-- mostrar estados de carga y mensajes;
-- gestionar errores de red, respuestas no correctas y JSON inválido.
-
-El JavaScript debe estar en archivos independientes y **sin manejadores inline**.
+- PHP nativo **sin frameworks**; MySQL/MariaDB con PDO y consultas preparadas; **Twig obligatorio**; JS vanilla; Composer; PHPUnit opcional.
+- Git con **commits pequeños y reales**; `.sql` importable (DDL + datos); **despliegue con URL verificada**; README con setup, decisiones, mejoras y análisis de **1.000 reservas/hora**.
+- Modelo: `reserva` y `reserva_evento` (historial). Evento al crear y en cada cambio de estado, **en la misma transacción**.
+- API: `GET /api/reservas` (filtros combinables), `GET /api/reservas/{id}`, `POST /api/reservas` (201), `PATCH /api/reservas/{id}/estado`.
+- Vistas Twig: listado y detalle con timeline; plantilla base con `extends`/`block`; autoescape.
+- JS: filtrar, crear (validación en cliente + errores del servidor), cancelar con confirmación, estados de carga, errores de red/HTTP/JSON; sin JS inline.
 
 ---
 
-## 3. Estado real del proyecto
+## 3. Estado real del proyecto (19/10/2026)
 
-| Elemento | Estado | Evidencia |
-|---|---|---|
-| Código de la aplicación | **No existe** | `git status` muestra «No commits yet» y que no hay nada que confirmar. |
-| Repositorio local | En `C:\dev\pruebatecnicaMP` | Coral indica que lo movió desde OneDrive. **Pendiente:** comprobar `git status` y `git remote -v` en la nueva ruta. |
-| Rama | `main`, sin commits | Salida de `git status` antes del traslado. |
-| Remoto | `https://github.com/coralormad/pruebatecnicaMP.git` | Se clonó desde ahí. El Project también está sincronizado con ese repositorio. |
+### Historial de Git (todo subido a `origin/main`)
+
+```
+b040b7a feat: add reservation data access and business logic
+cb87266 feat: add reservation database schema and seed data
+724c0db chore: enforce LF line endings
+74532ce chore: initialize project structure
+7472401 Initial commit   (README.md creado desde GitHub)
+```
+
+### Archivos existentes
+
+```
+.env               (local, NO versionado; DB_PASS aleatoria generada con openssl)
+.env.example       .gitattributes   .gitignore   composer.json   composer.lock
+continuidad.md     README.md (solo título)   composer.phar (ignorado)
+database/reservas.sql
+src/Database.php
+src/Exception/{ValidationException,NotFoundException,ConflictException}.php
+src/Repository/ReservaRepository.php
+src/Service/ReservaService.php
+public/assets/{css,js}/  src/{Controller,Http,Validation}/  templates/reservas/  tests/{Unit,Integration}/   (vacías)
+```
+
+### Base de datos
+
+| Elemento | Estado |
+|---|---|
+| `misterplan` | ✅ Esquema importado con 12 reservas y 21 eventos. **Comprobar** que tiene 12 reservas: tras la prueba de rollback se ejecutó la reimportación, pero su salida no se llegó a verificar. |
+| `misterplan_test` | Creada **vacía**. Se importará el esquema en la Fase 5. |
+| Usuario `misterplan_app@localhost` | `SELECT, INSERT, UPDATE` en `misterplan`; `ALL` en `misterplan_test`. ✅ Verificado: lee y **no** puede hacer `DROP` (ERROR 1142). |
 
 ---
 
 ## 4. Entorno local verificado
 
-| Herramienta | Versión o ubicación | Estado |
+| Herramienta | Versión / ubicación | Estado |
 |---|---|---|
-| PHP CLI | 8.3.6 de WAMP: `C:\wamp64\bin\php\php8.3.6\php.exe` | ✅ Incluye `pdo_mysql`, `mbstring`, `intl`, `json`, `openssl`, `zip`, `curl` y Xdebug 3.3.2. |
-| Composer | 2.10.3, en `C:\ProgramData\ComposerSetup\bin` | ✅ Usa PHP 8.3.6. |
-| Base de datos | **MySQL 8.3.0 de WAMP**, servicio `wampmysqld64`, **puerto 3306** | ✅ `root` sin contraseña, solo en local. |
-| Git | 2.55.0 | ✅ |
-| Terminal principal | Git Bash | `~/.bashrc` añade al `PATH` PHP 8.3.6 y `C:\wamp64\bin\mysql\mysql8.3.0\bin`. |
+| PHP CLI | 8.3.6 de WAMP | ✅ `pdo_mysql`, `intl`, `mbstring`… |
+| Composer | 2.10.3 (global) | ✅ |
+| Base de datos | **MySQL 8.3.0 de WAMP**, servicio `wampmysqld64`, **puerto 3306** | ✅ `root` sin contraseña (solo local) |
+| Dependencias | `twig/twig 3.30.0`, `phpunit/phpunit 11.5.57` (dev) | ✅ |
+| Git | 2.55.0, autor `coralormad <coraldpjob@gmail.com>` | ✅ |
+| Terminal | Git Bash | — |
 
-### Problemas resueltos durante la auditoría
+Otros servidores en el equipo (**no usar**): MySQL82 (detenido, contraseña desconocida) y MariaDB 10.4 de XAMPP en el **3308** (proyectos antiguos).
 
-1. Al **`PATH` del sistema le faltaban las rutas de Windows**, incluida `System32`. Se repararon con PowerShell como administrador. La copia de seguridad está en `C:\Users\coral\path-sistema-backup.txt`.
-2. Composer no estaba instalado. El instalador había propuesto **PHP 7.4**, pero se corrigió para usar **8.3.6**. También se desmarcó una opción de proxy vacía.
-3. Había **tres servidores de base de datos** en el equipo:
-   - **MySQL82**, una instalación independiente de MySQL 8.2 cuya contraseña de `root` se desconoce. Había dos instancias en conflicto. Ahora está **detenido y con arranque manual**. Sus datos no se han borrado.
-   - **MariaDB 10.4 de XAMPP** en el puerto **3308**. Contiene bases de datos de proyectos anteriores, como `pac1s2425` y `tfg_tattoo`. **No debe usarse ni modificarse.**
-   - **MySQL 8.3 de WAMP** en el puerto **3306**. ✅ **Es el servidor elegido.**
+### ⚠️ Trampas ya encontradas (evitarlas)
 
-### Advertencias para no volver a equivocarse
-
-- Los comandos de **PowerShell** (`Get-*`, `Stop-Service`, etc.) **no funcionan en Git Bash**. Para ejecutarlos con permisos de administrador desde Git Bash, se usa:
-  `powershell.exe -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-File','C:\Users\coral\script.ps1'"`
-  Existe un script de ejemplo en `~/cambiar-a-wamp-mysql.ps1`.
-- Los comandos deben pegarse **de uno en uno** si van en líneas separadas.
-- Si Workbench tiene configurada la conexión «Local instance MySQL82», apunta al servidor detenido. Habrá que crear una conexión nueva a `127.0.0.1:3306` con `root`.
+1. **WAMP debe estar arrancado** (icono «W» en verde). Si no: `ERROR 2003 … (10061)`. El de XAMPP en el 3308 no sirve.
+2. Los bloques `cat > archivo <<'EOF' … EOF` se pegan en **Git Bash**, nunca en el editor (si no, las líneas `cat`/`EOF` acaban dentro del archivo). Ahora Claude escribe los archivos directamente, así que esto ya no debería pasar.
+3. `core.autocrlf=true` en este equipo. Resuelto con `.gitattributes` (`* text=auto eol=lf`).
+4. Comandos SQL (`ALTER`, `EXIT`…) solo dentro de la consola `mysql>`. En Git Bash es mejor usar `mysql -e "…"`.
+5. Contraseñas tecleadas a ciegas → errores 1045. La de `misterplan_app` se generó con `openssl rand -hex 16` y solo está en `.env`. Para usarla en comandos: `P=$(grep '^DB_PASS=' .env | cut -d= -f2- | tr -d '\r'); …; unset P`.
+6. El remoto tenía un commit inicial (`README.md`): se integró con `git rebase origin/main`. **Nunca** `push --force`.
 
 ---
 
-## 5. Decisiones técnicas confirmadas por Coral
+## 5. Decisiones técnicas
 
-| ID | Decisión | Motivo | Alternativa descartada |
-|---|---|---|---|
-| E1 | Usar WAMP para PHP 8.3 y MySQL 8.3 | Es el entorno más parecido a un hosting típico. La MariaDB 10.4 de XAMPP ya no tiene soporte. | XAMPP o reparar MySQL82 |
-| E2 | Desarrollar con `php -S localhost:8000 -t public`, sin Apache | Evita configurar virtual hosts en local. | Apache de WAMP |
-| E3 | Mover el proyecto fuera de OneDrive | OneDrive puede bloquear archivos de `vendor/` y `.git/`. | Mantenerlo en OneDrive |
-| D1 | Transiciones permitidas: `pendiente → confirmada`, `pendiente → cancelada` y `confirmada → cancelada`. `cancelada` es un estado final. Si se intenta cambiar al mismo estado o hacer una transición inválida, se devuelve **409**. | Evita estados incoherentes y deja clara la diferencia entre un dato inválido y un conflicto de estado. | Permitir cualquier cambio |
-| D2 | **400** para peticiones que no se pueden interpretar, como JSON mal formado, un `id` no numérico o un filtro con formato incorrecto. **422** para datos con formato correcto que incumplen las reglas, como un email inválido o una fecha de salida anterior a la de entrada. | Distingue errores de formato y errores de validación. | Usar solo 400 |
-| D3 | `fecha_entrada=AAAA-MM-DD` filtra por igualdad exacta. `desde` y `hasta` filtran por **solapamiento**: `fecha_entrada <= hasta AND fecha_salida > desde`. | El día de salida no se considera una noche ocupada. | Usar solo la fecha de entrada |
-| D4 | Configuración en `.env` leída con `parse_ini_file()`, sin librerías | Basta para el alcance de la prueba y es fácil de explicar. | `vlucas/phpdotenv` |
-| D5 | Usar `DECIMAL(10,2)`, `ENUM` para el estado, `CHECK (fecha_salida > fecha_entrada)`, `utf8mb4` e índices | Evita errores de precisión con importes y añade integridad en la propia base de datos. El SQL debe ser compatible con MySQL 8 y MariaDB. | `FLOAT` o `VARCHAR` libre |
-| D6 | Crear el usuario `misterplan_app` con permisos solo sobre la base de datos `misterplan` | Aplica el principio de mínimo privilegio. | Conectar como `root` |
-| D7 | Usar PHPUnit 11 con tests unitarios del validador y tests de integración contra `misterplan_test` | Permite probar la lógica sin afectar a los datos de desarrollo. | Hacer solo pruebas manuales |
+| ID | Decisión | Motivo |
+|---|---|---|
+| E1 | WAMP: PHP 8.3 + MySQL 8.3 | Parecido a un hosting típico. |
+| E2 | Desarrollo con `php -S localhost:8000 -t public` | Sin configurar Apache. |
+| E3 | Proyecto fuera de OneDrive | OneDrive bloquea `vendor/` y `.git/`. |
+| D1 | Transiciones: `pendiente→confirmada`, `pendiente→cancelada`, `confirmada→cancelada`. `cancelada` es final. Mismo estado o transición inválida → **409** | Evita estados incoherentes. |
+| D2 | **400** = petición no interpretable (JSON mal formado, id no numérico, filtro mal formado). **422** = datos bien formados que incumplen reglas. 404, 405, 500 sin detalles internos | Distingue formato de validación. |
+| D3 | `fecha_entrada` = igualdad exacta. `desde`/`hasta` = solape: `fecha_entrada <= hasta AND fecha_salida > desde` | El día de salida no es noche ocupada. |
+| D4 | `.env` leído con `parse_ini_file(…, INI_SCANNER_RAW)` | Sin librerías; RAW evita que `true`/`no`/`null` se conviertan. |
+| D5 | `DECIMAL(10,2)`, `ENUM`, `CHECK`, `utf8mb4_unicode_ci`, índices | Integridad en la BD; compatible con MariaDB. |
+| D6 | Usuario `misterplan_app` con mínimo privilegio | Limita el daño de una inyección. |
+| D7 | PHPUnit 11: unitarios + integración contra `misterplan_test` | Pruebas sin tocar datos de desarrollo. |
+| D8 | `reserva_evento.tipo ENUM('creacion','confirmacion','cancelacion')` (opción A) | Tipado, filtrable, icono por tipo en la timeline. |
+| D9 | Índice compuesto `(estado, fecha_entrada)` + `(fecha_entrada, fecha_salida)` + `nombre_huesped` | Regla del prefijo izquierdo. ⚠️ `idx_reserva_nombre` no se usa con `LIKE '%x%'` → documentar en el README (FULLTEXT a gran escala). |
+| D10 | `ON DELETE RESTRICT` en la FK | Las reservas se cancelan, no se borran; el historial es auditoría. |
+| D11 | `Database` sin estado (fábrica estática), no singleton. `EMULATE_PREPARES=false`, `ERRMODE_EXCEPTION`, `FETCH_ASSOC` | Testeable; preparadas nativas; enteros como `int`. |
+| D12 | `LIKE … ESCAPE '!'` con escape de `!`, `%` y `_` en el repositorio | Las preparadas evitan inyección, pero no los comodines. |
+| D13 | Transacciones en el **servicio** (`enTransaccion()`), no en el repositorio | La unidad de trabajo «reserva + evento» es regla de negocio. |
+| D14 | `SELECT … FOR UPDATE` al cambiar de estado | Evita condiciones de carrera entre peticiones simultáneas. |
+| D15 | Máquina de estados como constante `TRANSICIONES` | Legible y ampliable. |
+| D16 | Excepciones de dominio sin conocimiento de HTTP; el manejador central las traducirá (422/404/409) | Servicio reutilizable fuera de HTTP. |
+| D17 | Sin `config/`, `logs/`, `migrations/`, `docs/`, `img/`, `partials/` ni caché de Twig | No justificados por el alcance. |
+| D18 | `importe` se maneja como `string` en PHP | PDO devuelve `DECIMAL` como cadena para no perder precisión. |
 
 ---
 
-## 6. Arquitectura prevista (aprobada, no implementada)
+## 6. Arquitectura
 
 ```
-public/        index.php (front controller), .htaccess, assets/{css,js}
-src/           Database.php · Http/{Router,Request,JsonResponse}
-               Controller/{ReservaApiController,ReservaViewController}
-               Service/ReservaService · Repository/ReservaRepository
-               Validation/ReservaValidator · Exception/{Validation,NotFound,Conflict}Exception
-templates/     base.html.twig · reservas/{listado,detalle}.html.twig
-database/      reservas.sql
-tests/         Unit/ · Integration/
-.env.example   composer.json · phpunit.xml · .gitignore · README.md
+public/        index.php (front controller), .htaccess, assets/{css,js}      ← Fase 4/6/7
+src/           Database.php ✅
+               Exception/{Validation,NotFound,Conflict}Exception ✅
+               Repository/ReservaRepository ✅
+               Service/ReservaService ✅
+               Http/{Router,Request,JsonResponse}                             ← Fase 4
+               Validation/ReservaValidator                                     ← Fase 4
+               Controller/{ReservaApiController,ReservaViewController}        ← Fase 4/6
+templates/     base.html.twig · reservas/{listado,detalle}.html.twig          ← Fase 6
+database/      reservas.sql ✅
+tests/         Unit/ · Integration/                                           ← Fase 5
 ```
 
-```mermaid
-flowchart LR
-  U[Navegador] -->|HTML| V[ReservaViewController] --> T[Twig templates]
-  U -->|fetch JSON| R[public/index.php + Router] --> A[ReservaApiController]
-  A --> VAL[ReservaValidator]
-  A --> S[ReservaService]
-  V --> S
-  S -->|transacción| REP[ReservaRepository] --> DB[(MySQL: reserva, reserva_evento)]
-  A --> J[JsonResponse]
-```
+### API pública de las clases ya hechas
+
+- `Database::fromEnv(string $envFile): PDO` · `loadConfig()` · `connect(array $config): PDO`
+- `ReservaRepository(PDO)`: `findAll(array $filtros)` (claves: `estado`, `nombre`, `fecha_entrada`, `desde`, `hasta`; **espera filtros ya validados**), `findById(int)`, `findByIdForUpdate(int)`, `findEventos(int)`, `insert(array): int`, `updateEstado(int, string)`, `insertEvento(int, string, string)`
+- `ReservaService(PDO, ReservaRepository)`: `listar(array)`, `obtener(int)` (incluye `eventos`; lanza `NotFoundException`), `crear(array)` (datos ya validados; devuelve la reserva con eventos), `cambiarEstado(int, string)` (lanza `ValidationException`/`NotFoundException`/`ConflictException`)
+- `ValidationException(array $errors, string $message)` → `getErrors()`
 
 ---
 
@@ -193,56 +163,63 @@ flowchart LR
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 1 | Auditoría y plan | ✅ Completada y aprobada el 17/10 |
-| 2 | Estructura, `composer.json`, `.gitignore`, `.env.example` y SQL | ⏭ Siguiente |
-| 3 | PDO, repositorio, servicio y transacciones | Pendiente |
-| 4 | API, validación y errores | Pendiente |
+| 1 | Auditoría y plan | ✅ 17/10 |
+| 2 | Estructura, Composer, `.gitignore`, `.env`, `.gitattributes`, SQL, BD y usuario | ✅ 19/10 |
+| 3 | PDO, repositorio, servicio y transacciones | ✅ 19/10 (rollback forzado verificado) |
+| 4 | API, validación y errores | ⏭ **Siguiente** |
 | 5 | PHPUnit y revisión de seguridad | Pendiente |
 | 6 | Twig: listado y detalle | Pendiente |
 | 7 | JavaScript: filtros, creación y cancelación | Pendiente |
 | 8 | Revisión completa y README | Pendiente |
 | 9 | Despliegue verificado, escalabilidad y preparación de la entrevista | Pendiente |
 
+Plan temporal de referencia: `Plan_ejecucion_MisterPlan.docx` (≈53 h; hito «backend entregable» al cerrar la Fase 5).
+
+### Pruebas ya ejecutadas y verificadas
+
+- Fase 2: `composer validate`/`install`; importación; recuentos (5 confirmadas, 4 pendientes, 3 canceladas; 12/6/3 eventos); búsqueda sin tildes; `CHECK` de fechas (ERROR 3819); FK (ERROR 1452); mínimo privilegio (ERROR 1142).
+- Fase 3: conexión desde `.env`; 10 casos del repositorio (filtros combinados, solape → solo la 11, `%` → 0 resultados, `O'Connor`, id 999 → NULL); 8 casos del servicio (transiciones válidas, 409, 404, 422, historial); **rollback** forzado renombrando `reserva_evento` (antes 13 / después 13).
+
 ---
 
 ## 8. Próximos pasos (en orden)
 
-1. Comprobar el repositorio en la nueva ruta con:
+1. **Comprobar los datos de ejemplo** (con WAMP arrancado):
    ```bash
-   cd /c/dev/pruebatecnicaMP && git status && git remote -v
+   mysql -u root -h 127.0.0.1 -P 3306 misterplan -e "SELECT COUNT(*) reservas FROM reserva;"
    ```
-2. Decidir la forma de trabajo:
-   - **a)** conectar la carpeta a Claude mediante «+» → «Add folder»;
-   - **b)** que Claude envíe bloques de código y Coral cree los archivos.
-3. Fase 2:
-   - crear la base de datos `misterplan` y el usuario `misterplan_app`;
-   - crear la estructura del proyecto;
-   - configurar `composer.json` con autoload PSR-4 `App\` y Twig;
-   - crear `database/reservas.sql`.
-   - Commits previstos: `chore: initialize project structure` y `feat: add reservation database schema`.
-4. Contrastar estos requisitos con el **enunciado original** de MisterPlan.
+   Si no da 12: `mysql -u root -h 127.0.0.1 -P 3306 --default-character-set=utf8mb4 misterplan < database/reservas.sql`
+2. **Fase 4 — API** (propuesta pendiente de aprobación):
+   - `src/Http/Request.php`: método, ruta, query y cuerpo JSON (JSON mal formado → 400).
+   - `src/Http/JsonResponse.php`: JSON homogéneo, código HTTP y cabeceras de seguridad.
+   - `src/Http/Router.php`: método + ruta → controlador; 404 ruta desconocida, 405 método no permitido.
+   - `src/Validation/ReservaValidator.php`: datos de creación y filtros; lista cerrada de campos; longitudes como en el SQL (nombre 120, email 254, alojamiento 150, notas 1000); importe > 0 con máximo 2 decimales.
+   - `src/Controller/ReservaApiController.php`: los 4 endpoints.
+   - `public/index.php`: front controller + manejador de errores centralizado (sin trazas si `APP_DEBUG=false`).
+   - Exigir `Content-Type: application/json` en escrituras (alternativa a CSRF, justificar en el README).
+   - **Hecho cuando:** los 4 endpoints responden con los códigos de D2, probado con `curl`.
+   - Commit previsto: `feat: implement reservation API`.
+3. Fase 5: importar el esquema en `misterplan_test`, `phpunit.xml` y convertir las pruebas manuales de las Fases 3–4 en tests.
+4. Elegir hosting antes de la Fase 6 (riesgos: Composer/SSH, raíz en `public/`, versión de MariaDB y soporte de `CHECK`).
+
+---
 
 ## 9. Instrucciones para retomar en otra sesión
 
-- Leer este archivo y la descripción del Project antes de proponer cambios.
-- Trabajar **una fase cada vez** y esperar la aprobación de Coral antes de avanzar.
-- Explicar todo el código para que pueda defenderlo en la entrevista.
-- Usar los prefijos 💻, 📄 y ✏️, e indicar siempre las rutas exactas.
-- No hacer commits, pushes ni operaciones destructivas sin aprobación.
-- No afirmar que un test o un despliegue funciona sin haberlo ejecutado y comprobado.
-- **Preparación de la entrevista:** se completará en la Fase 9, cuando exista código real que defender. Antes de esa fase, solo se pueden defender las decisiones de entorno y de diseño de las secciones 4 y 5.
+- Leer este archivo y las instrucciones del Project (enunciado original) antes de proponer cambios.
+- Trabajar **paso a paso** y esperar la aprobación de Coral antes de cambiar de fase.
+- **Explicar cada archivo y cada decisión** para que Coral pueda defenderlo en la entrevista.
+- Prefijos: 💻 TERMINAL, 📄 ARCHIVO NUEVO, ✏️ ARCHIVO EXISTENTE; rutas exactas siempre.
+- Con la carpeta conectada, Claude escribe los archivos directamente (`C:\dev\pruebatecnicaMP`). Coral ejecuta los comandos de comprobación y pega la salida. Si la carpeta no aparece conectada, pedir acceso de nuevo.
+- Respuestas concisas y económicas en tokens.
+- No hacer commits, pushes ni operaciones destructivas sin aprobación. Commits con `git add` de archivos concretos y mensajes Conventional Commits en inglés.
+- No afirmar que algo funciona sin haber visto la salida real. Si Coral pega el comando sin la salida, pedirla.
+
+---
 
 ## 10. Registro de cambios
 
-- **14–15/10/2026:**
-  - repositorio creado y clonado;
-  - auditoría del entorno;
-  - `PATH` reparado;
-  - Composer instalado.
-- **15/10/2026:**
-  - diagnóstico de MySQL82: contraseña desconocida y dos instancias en conflicto.
-- **17/10/2026:**
-  - cambio a MySQL 8.3 de WAMP;
-  - Fase 1 aprobada con las decisiones D1–D7;
-  - proyecto movido a `C:\dev\pruebatecnicaMP`;
-  - creación de este documento.
+- **14–15/10/2026:** repositorio creado y clonado; auditoría del entorno; `PATH` reparado; Composer instalado; diagnóstico de MySQL82.
+- **17/10/2026:** cambio a MySQL 8.3 de WAMP; Fase 1 aprobada (D1–D7); proyecto movido a `C:\dev\pruebatecnicaMP`; enunciado original contrastado; plan con estimación de tiempos (`Plan_ejecucion_MisterPlan.docx`).
+- **18/10/2026:** remoto `origin` reconfigurado; BD `misterplan` y `misterplan_test` creadas; usuario `misterplan_app`; estructura de carpetas creada.
+- **19/10/2026:** archivos base (Composer, `.gitignore`, `.env.example`, `.gitattributes`); `reservas.sql` con 12 reservas y 21 eventos; contraseña de la app regenerada; carpeta conectada a Claude; Fase 3 completa (Database, excepciones, repositorio, servicio) con rollback verificado. Commits `74532ce` → `b040b7a`.
