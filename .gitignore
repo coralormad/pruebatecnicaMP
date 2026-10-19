@@ -1,0 +1,17 @@
+# Dependencias (se reinstalan con composer install)
+/vendor/
+
+# Secretos y configuración local
+.env
+
+# Binario local de Composer (usamos el global)
+composer.phar
+
+# Caché de PHPUnit
+.phpunit.cache/
+
+# Editores y sistema operativo
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
