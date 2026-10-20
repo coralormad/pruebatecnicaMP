@@ -175,6 +175,71 @@ final class ReservaServiceTest extends TestCase
         $this->assertEquals($antes, $this->service->obtener($id));
     }
 
+    /**
+     * Carrera real entre dos peticiones:
+     *  A cancela la reserva, pero su transacción aún no ha terminado.
+     *  B (otro proceso) intenta confirmarla en ese momento.
+     * Gracias a SELECT ... FOR UPDATE, B espera a que A termine, lee "cancelada" y da 409.
+     * Sin el bloqueo, B leería "pendiente" (dato antiguo) y confirmaría una reserva cancelada.
+     */
+    public function testDosPeticionesSimultaneasNoConfirmanUnaReservaCancelada(): void
+    {
+        $id = $this->crearReserva()['id'];
+
+        // Petición A: conexión propia, cancela dentro de una transacción que deja abierta.
+        $peticionA = Database::fromEnv(self::ENV_FILE);
+        $peticionA->beginTransaction();
+        $peticionA->prepare("UPDATE reserva SET estado = 'cancelada' WHERE id = ?")->execute([$id]);
+        $peticionA->prepare(
+            "INSERT INTO reserva_evento (reserva_id, tipo, descripcion) VALUES (?, 'cancelacion', 'Cancelada por A')"
+        )->execute([$id]);
+
+        // Petición B: otro proceso PHP con su propia conexión.
+        $comando = [PHP_BINARY, __DIR__ . '/scripts/cambiar-estado.php', self::ENV_FILE, (string) $id, 'confirmada'];
+        $proceso = proc_open($comando, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $tuberias);
+        $this->assertIsResource($proceso, 'No se pudo lanzar el proceso B');
+
+        try {
+            // Solo tiene sentido terminar A cuando B ya está esperando el bloqueo.
+            $this->assertTrue($this->esperarConsultaBloqueada(), 'B no llegó a esperar el bloqueo de la fila');
+        } finally {
+            $peticionA->commit(); // A termina: se libera la fila y B continúa.
+        }
+
+        $salidaB = trim((string) stream_get_contents($tuberias[1]));
+        fclose($tuberias[1]);
+        fclose($tuberias[2]);
+        proc_close($proceso);
+
+        $this->assertSame('conflicto', $salidaB, 'B debe ver la cancelación de A y responder 409');
+
+        $reserva = $this->service->obtener($id);
+        $this->assertSame('cancelada', $reserva['estado']);
+        $this->assertSame(['creacion', 'cancelacion'], self::tipos($reserva));
+    }
+
+    /**
+     * Espera (máx. 10 s) a que otra conexión tenga una consulta sobre "reserva" en curso,
+     * es decir, que esté bloqueada esperando la fila.
+     */
+    private function esperarConsultaBloqueada(): bool
+    {
+        $consulta = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM information_schema.PROCESSLIST
+             WHERE ID <> CONNECTION_ID() AND DB = DATABASE() AND INFO LIKE '%reserva%'"
+        );
+
+        for ($intento = 0; $intento < 100; $intento++) {
+            $consulta->execute();
+            if ((int) $consulta->fetchColumn() > 0) {
+                return true;
+            }
+            usleep(100_000); // 0,1 s
+        }
+
+        return false;
+    }
+
     public function testVolverAPendienteNoEsUnDestinoValido(): void
     {
         $id = $this->crearReserva()['id'];
