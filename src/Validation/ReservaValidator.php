@@ -41,6 +41,9 @@ final class ReservaValidator
     /** DECIMAL(10,2): hasta 8 dígitos enteros y 2 decimales. */
     private const IMPORTE_REGEX = '/^\d{1,8}(\.\d{1,2})?$/D';
 
+    /** Fecha mínima que MySQL garantiza para el tipo DATE. */
+    private const FECHA_MINIMA = '1000-01-01';
+
     /**
      * @param array<string, mixed> $body cuerpo JSON ya decodificado
      * @return array{nombre_huesped: string, email_huesped: string, nombre_alojamiento: string,
@@ -96,7 +99,7 @@ final class ReservaValidator
             $errores['fecha_salida'] = 'Debe ser posterior a la fecha de entrada.';
         }
 
-        // 3. Importe: string o número, validado como texto (nunca se opera con float).
+        // 3. Importe: texto o entero, validado como texto (nunca pasa por float).
         $importe = $this->normalizarImporte($body['importe'] ?? null, $errores);
 
         // 4. Notas: opcionales; string o null.
@@ -243,9 +246,16 @@ final class ReservaValidator
             return null;
         }
 
-        // is_bool primero: true no debe colarse como 1.
-        if (is_bool($valor) || !(is_string($valor) || is_int($valor) || is_float($valor))) {
-            $errores['importe'] = 'Debe ser un número o un texto numérico.';
+        // Un número con decimales llega de json_decode como float, y convertir un float
+        // a texto puede redondearlo. Para no perder precisión se pide como texto.
+        if (is_float($valor)) {
+            $errores['importe'] = 'Envía el importe como texto, por ejemplo "120.50".';
+            return null;
+        }
+
+        // Solo texto o entero. Los booleanos (true), arrays y objetos se rechazan.
+        if (!is_string($valor) && !is_int($valor)) {
+            $errores['importe'] = 'Debe ser un texto numérico, por ejemplo "120.50".';
             return null;
         }
 
@@ -290,10 +300,19 @@ final class ReservaValidator
         return $valor === '' ? null : $valor;
     }
 
-    /** Fecha real en formato estricto AAAA-MM-DD (rechaza 2026-02-30). */
+    /**
+     * Fecha real en formato estricto AAAA-MM-DD (rechaza 2026-02-30)
+     * y dentro del rango que MySQL garantiza para DATE.
+     */
     private static function esFechaValida(string $valor): bool
     {
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $valor) !== 1) {
+            return false;
+        }
+
+        // Con formato AAAA-MM-DD, comparar strings equivale a comparar fechas.
+        // El límite superior (9999-12-31) ya lo impone el formato de 4 dígitos.
+        if ($valor < self::FECHA_MINIMA) {
             return false;
         }
 
