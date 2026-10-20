@@ -54,17 +54,26 @@ try {
     $config = Database::loadConfig($raiz . '/.env');
     $debug = strtolower($config['APP_DEBUG'] ?? 'false') === 'true';
 
-    $pdo = Database::connect($config);
-    $api = new ReservaApiController(
-        new ReservaService($pdo, new ReservaRepository($pdo)),
-        new ReservaValidator(),
-    );
+    // Conexión perezosa: el controlador (y la conexión a la BD) se crea la primera vez
+    // que una ruta lo necesita. Así una ruta inexistente da 404 aunque la BD esté caída.
+    $controlador = null;
+    $api = static function () use ($config, &$controlador): ReservaApiController {
+        if ($controlador === null) {
+            $pdo = Database::connect($config);
+            $controlador = new ReservaApiController(
+                new ReservaService($pdo, new ReservaRepository($pdo)),
+                new ReservaValidator(),
+            );
+        }
+
+        return $controlador;
+    };
 
     $router = new Router();
-    $router->get('/api/reservas', static fn (Request $r): JsonResponse => $api->listar($r));
-    $router->post('/api/reservas', static fn (Request $r): JsonResponse => $api->crear($r));
-    $router->get('/api/reservas/{id}', static fn (Request $r, array $p): JsonResponse => $api->detalle($r, $p));
-    $router->patch('/api/reservas/{id}/estado', static fn (Request $r, array $p): JsonResponse => $api->cambiarEstado($r, $p));
+    $router->get('/api/reservas', static fn (Request $r): JsonResponse => $api()->listar($r));
+    $router->post('/api/reservas', static fn (Request $r): JsonResponse => $api()->crear($r));
+    $router->get('/api/reservas/{id}', static fn (Request $r, array $p): JsonResponse => $api()->detalle($r, $p));
+    $router->patch('/api/reservas/{id}/estado', static fn (Request $r, array $p): JsonResponse => $api()->cambiarEstado($r, $p));
 
     $response = $router->dispatch(Request::fromGlobals());
 } catch (HttpException $e) {
