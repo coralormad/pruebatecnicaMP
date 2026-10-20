@@ -3,6 +3,7 @@
 
 # Secretos y configuración local
 .env
+.env.testing
 
 # Binario local de Composer (usamos el global)
 composer.phar

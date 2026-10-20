@@ -3,6 +3,7 @@
     Configuración de PHPUnit.
     - bootstrap: carga el autoload de Composer (clases App\ y Tests\).
     - Suite "Unit": tests sin base de datos (validador, router).
+    - Suite "Integration": servicio + repositorio contra la BD misterplan_test (.env.testing).
     - failOn*: un aviso o una deprecación también cuenta como fallo, para no ignorarlos.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -17,6 +18,9 @@
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
 
