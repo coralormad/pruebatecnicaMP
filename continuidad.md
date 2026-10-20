@@ -1,6 +1,6 @@
 # Continuidad — Prueba técnica PHP Junior · MisterPlan
 
-> **Última actualización:** 19/10/2026 · **Fase actual:** Fases 2 y 3 cerradas. **Siguiente: Fase 4 (API, validación y errores).**
+> **Última actualización:** 21/10/2026 · **Fase actual:** Fase 4 cerrada. **Siguiente: Fase 5 (PHPUnit y revisión de seguridad).**
 > Este documento sirve para retomar el proyecto en otra sesión sin repetir la investigación. Si algo de aquí contradice al código, **manda el código**.
 
 ---
@@ -46,11 +46,13 @@
 
 ---
 
-## 3. Estado real del proyecto (19/10/2026)
+## 3. Estado real del proyecto (21/10/2026)
 
 ### Historial de Git (todo subido a `origin/main`)
 
 ```
+ea79f0c feat: implement reservation API
+a68942d docs: update continuity notes after phases 2-3
 b040b7a feat: add reservation data access and business logic
 cb87266 feat: add reservation database schema and seed data
 724c0db chore: enforce LF line endings
@@ -69,14 +71,19 @@ src/Database.php
 src/Exception/{ValidationException,NotFoundException,ConflictException}.php
 src/Repository/ReservaRepository.php
 src/Service/ReservaService.php
-public/assets/{css,js}/  src/{Controller,Http,Validation}/  templates/reservas/  tests/{Unit,Integration}/   (vacías)
+src/Http/{HttpException,Request,JsonResponse,Router}.php
+src/Validation/ReservaValidator.php
+src/Controller/ReservaApiController.php
+public/index.php
+tests/api-smoke.sh
+public/assets/{css,js}/  templates/reservas/  tests/{Unit,Integration}/   (vacías)
 ```
 
 ### Base de datos
 
 | Elemento | Estado |
 |---|---|
-| `misterplan` | ✅ Esquema importado con 12 reservas y 21 eventos. **Comprobar** que tiene 12 reservas: tras la prueba de rollback se ejecutó la reimportación, pero su salida no se llegó a verificar. |
+| `misterplan` | ✅ Seed verificado el 19/10 (12 reservas, 21 eventos). Las pruebas de la Fase 4 han creado reservas extra (ids 13–15). **Reimportar** `reservas.sql` antes de las Fases 6–7 para trabajar con los datos de ejemplo limpios. |
 | `misterplan_test` | Creada **vacía**. Se importará el esquema en la Fase 5. |
 | Usuario `misterplan_app@localhost` | `SELECT, INSERT, UPDATE` en `misterplan`; `ALL` en `misterplan_test`. ✅ Verificado: lee y **no** puede hacer `DROP` (ERROR 1142). |
 
@@ -103,6 +110,9 @@ Otros servidores en el equipo (**no usar**): MySQL82 (detenido, contraseña desc
 4. Comandos SQL (`ALTER`, `EXIT`…) solo dentro de la consola `mysql>`. En Git Bash es mejor usar `mysql -e "…"`.
 5. Contraseñas tecleadas a ciegas → errores 1045. La de `misterplan_app` se generó con `openssl rand -hex 16` y solo está en `.env`. Para usarla en comandos: `P=$(grep '^DB_PASS=' .env | cut -d= -f2- | tr -d '\r'); …; unset P`.
 6. El remoto tenía un commit inicial (`README.md`): se integró con `git rebase origin/main`. **Nunca** `push --force`.
+7. **`php.exe` es nativo de Windows y no entiende rutas de Git Bash como `/tmp/...`.** Para pasarle un archivo: ruta relativa dentro del proyecto o redirección `php -r '…' < archivo`.
+8. Pegar muchos comandos seguidos en Git Bash puede perder los saltos de línea → `syntax error`. Para baterías largas: script en el repo (`bash tests/api-smoke.sh`).
+9. Es un proyecto PHP: **no hay `npm`**. El servidor es siempre `php -S localhost:8000 -t public` (en una terminal aparte, que se deja abierta).
 
 ---
 
@@ -114,7 +124,7 @@ Otros servidores en el equipo (**no usar**): MySQL82 (detenido, contraseña desc
 | E2 | Desarrollo con `php -S localhost:8000 -t public` | Sin configurar Apache. |
 | E3 | Proyecto fuera de OneDrive | OneDrive bloquea `vendor/` y `.git/`. |
 | D1 | Transiciones: `pendiente→confirmada`, `pendiente→cancelada`, `confirmada→cancelada`. `cancelada` es final. Mismo estado o transición inválida → **409** | Evita estados incoherentes. |
-| D2 | **400** = petición no interpretable (JSON mal formado, id no numérico, filtro mal formado). **422** = datos bien formados que incumplen reglas. 404, 405, 500 sin detalles internos | Distingue formato de validación. |
+| D2 | **400** = petición no interpretable (JSON mal formado, cuerpo vacío o no objeto, id no válido, filtro mal formado o desconocido). **404** recurso o ruta. **405** + `Allow`. **409** transición. **413** cuerpo > 16 KB. **415** escritura sin `application/json`. **422** datos bien formados que incumplen reglas o tipos, con `fields`. **500** genérico | Distingue formato de validación. Ampliada en la Fase 4 (413, 415). |
 | D3 | `fecha_entrada` = igualdad exacta. `desde`/`hasta` = solape: `fecha_entrada <= hasta AND fecha_salida > desde` | El día de salida no es noche ocupada. |
 | D4 | `.env` leído con `parse_ini_file(…, INI_SCANNER_RAW)` | Sin librerías; RAW evita que `true`/`no`/`null` se conviertan. |
 | D5 | `DECIMAL(10,2)`, `ENUM`, `CHECK`, `utf8mb4_unicode_ci`, índices | Integridad en la BD; compatible con MariaDB. |
@@ -131,23 +141,32 @@ Otros servidores en el equipo (**no usar**): MySQL82 (detenido, contraseña desc
 | D16 | Excepciones de dominio sin conocimiento de HTTP; el manejador central las traducirá (422/404/409) | Servicio reutilizable fuera de HTTP. |
 | D17 | Sin `config/`, `logs/`, `migrations/`, `docs/`, `img/`, `partials/` ni caché de Twig | No justificados por el alcance. |
 | D18 | `importe` se maneja como `string` en PHP | PDO devuelve `DECIMAL` como cadena para no perder precisión. |
+| D19 | Formato JSON: éxito `{"data": …}`; error `{"error": {"message", "fields"?}}` | El JS siempre sabe dónde mirar. Aprobado por la revisión externa. |
+| D20 | Lista cerrada de campos: un campo desconocido en POST/PATCH → **422** «Campo no permitido» (no se ignora) | Bloquea la asignación masiva de forma visible. |
+| D21 | Tipos JSON estrictos: textos deben ser `string`; `notas` `string`/`null`; `importe` `string` o número validado como texto con `^\d{1,8}(\.\d{1,2})?$` y `> 0`; arrays/booleanos → 422 | PHP no convierte tipos a escondidas; importe exacto como `DECIMAL(10,2)`. |
+| D22 | `fecha_entrada` en el pasado **permitida** | Herramienta interna: reservas tardías legítimas. Documentar en el README. |
+| D23 | Cuerpo máximo 16 KB leyendo `php://input` con `MAX + 1` bytes; `json_decode` con profundidad 32 y objetos (`stdClass`) | No depende de `Content-Length`; distingue `{}` de `[]`. |
+| D24 | Router: `{id}` acepta cualquier segmento y lo valida el controlador (`^[1-9]\d{0,17}$`) → 400; 405 frente a 404 decidido al final del bucle | `/api/reservas/abc` es 400 (D2), no 404; el orden de rutas no altera 405. |
+| D25 | Manejo de errores centralizado en `public/index.php`: `HttpException` → su código; Validation 422; NotFound 404; Conflict 409; `Throwable` → 500 genérico + `error_log`. `display_errors=0`, `set_error_handler` (warnings → excepción), `header_remove('X-Powered-By')`. Detalle solo si `APP_DEBUG=true` | Ningún endpoint trata errores por su cuenta; nunca se filtra información interna. |
+| D26 | Cabeceras: `Content-Type: application/json; charset=utf-8`, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. Sin CORS (mismo origen) | Datos personales no cacheados; el navegador no reinterpreta el JSON. |
+| D27 | Sin token CSRF: no hay autenticación ni cookies; las escrituras exigen JSON (415). README: uso interno, no listo para exposición pública sin autenticación | Proporcional al alcance; la revisión externa pidió documentar este límite. |
 
 ---
 
 ## 6. Arquitectura
 
 ```
-public/        index.php (front controller), .htaccess, assets/{css,js}      ← Fase 4/6/7
+public/        index.php (front controller) ✅, .htaccess, assets/{css,js}    ← Fase 6/7
 src/           Database.php ✅
                Exception/{Validation,NotFound,Conflict}Exception ✅
                Repository/ReservaRepository ✅
                Service/ReservaService ✅
-               Http/{Router,Request,JsonResponse}                             ← Fase 4
-               Validation/ReservaValidator                                     ← Fase 4
-               Controller/{ReservaApiController,ReservaViewController}        ← Fase 4/6
+               Http/{HttpException,Router,Request,JsonResponse} ✅
+               Validation/ReservaValidator ✅
+               Controller/ReservaApiController ✅ · ReservaViewController     ← Fase 6
 templates/     base.html.twig · reservas/{listado,detalle}.html.twig          ← Fase 6
 database/      reservas.sql ✅
-tests/         Unit/ · Integration/                                           ← Fase 5
+tests/         api-smoke.sh ✅ · Unit/ · Integration/                        ← Fase 5
 ```
 
 ### API pública de las clases ya hechas
@@ -156,6 +175,12 @@ tests/         Unit/ · Integration/                                           �
 - `ReservaRepository(PDO)`: `findAll(array $filtros)` (claves: `estado`, `nombre`, `fecha_entrada`, `desde`, `hasta`; **espera filtros ya validados**), `findById(int)`, `findByIdForUpdate(int)`, `findEventos(int)`, `insert(array): int`, `updateEstado(int, string)`, `insertEvento(int, string, string)`
 - `ReservaService(PDO, ReservaRepository)`: `listar(array)`, `obtener(int)` (incluye `eventos`; lanza `NotFoundException`), `crear(array)` (datos ya validados; devuelve la reserva con eventos), `cambiarEstado(int, string)` (lanza `ValidationException`/`NotFoundException`/`ConflictException`)
 - `ValidationException(array $errors, string $message)` → `getErrors()`
+- `HttpException(int $status, string $message, array $fields = [], array $headers = [])` → `getStatus()`, `getFields()`, `getHeaders()`
+- `Request::fromGlobals()` → `getMethod()`, `getPath()`, `getQuery()`, `getJsonBody(): array` (415/413/400). Constructor privado: para tests, ver Fase 5.
+- `JsonResponse::data($data, int $status = 200)` · `JsonResponse::error(int, string, array $fields = [], array $headers = [])` → `getStatus()`, `getPayload()`, `send()`
+- `Router`: `get/post/patch(string $pattern, Closure)`, `dispatch(Request): mixed` (closure recibe `Request` y `array $params`)
+- `ReservaValidator`: `validarCreacion(array): array` (422), `validarCambioEstado(array): string` (422), `validarFiltros(array): array` (400), `validarId(string): int` (400)
+- `ReservaApiController(ReservaService, ReservaValidator)`: `listar`, `detalle`, `crear` (201), `cambiarEstado`
 
 ---
 
@@ -166,8 +191,8 @@ tests/         Unit/ · Integration/                                           �
 | 1 | Auditoría y plan | ✅ 17/10 |
 | 2 | Estructura, Composer, `.gitignore`, `.env`, `.gitattributes`, SQL, BD y usuario | ✅ 19/10 |
 | 3 | PDO, repositorio, servicio y transacciones | ✅ 19/10 (rollback forzado verificado) |
-| 4 | API, validación y errores | ⏭ **Siguiente** |
-| 5 | PHPUnit y revisión de seguridad | Pendiente |
+| 4 | API, validación y errores | ✅ 21/10 (21/21 en `tests/api-smoke.sh`) |
+| 5 | PHPUnit y revisión de seguridad | ⏭ **Siguiente** |
 | 6 | Twig: listado y detalle | Pendiente |
 | 7 | JavaScript: filtros, creación y cancelación | Pendiente |
 | 8 | Revisión completa y README | Pendiente |
@@ -179,28 +204,27 @@ Plan temporal de referencia: `Plan_ejecucion_MisterPlan.docx` (≈53 h; hito «b
 
 - Fase 2: `composer validate`/`install`; importación; recuentos (5 confirmadas, 4 pendientes, 3 canceladas; 12/6/3 eventos); búsqueda sin tildes; `CHECK` de fechas (ERROR 3819); FK (ERROR 1452); mínimo privilegio (ERROR 1142).
 - Fase 3: conexión desde `.env`; 10 casos del repositorio (filtros combinados, solape → solo la 11, `%` → 0 resultados, `O'Connor`, id 999 → NULL); 8 casos del servicio (transiciones válidas, 409, 404, 422, historial); **rollback** forzado renombrando `reserva_evento` (antes 13 / después 13).
+- Fase 4: propuesta revisada por una IA externa (APROBADO CON CAMBIOS; los 5 cambios obligatorios aplicados). Validador ejecutado contra 20 casos límite. `bash tests/api-smoke.sh` en el equipo de Coral: **21 OK, 0 fallos** (200, 201, 400 ×4, 404 ×3, 405, 409 ×2, 415, 422 ×2 e historial `creacion,confirmacion,cancelacion`). Verificado además en un entorno de pruebas aparte: 413 con 17 KB, cabeceras de seguridad, sin `X-Powered-By`, 500 genérico con la BD caída (detalle solo en `error_log`) y detalle visible solo con `APP_DEBUG=true`.
 
 ---
 
 ## 8. Próximos pasos (en orden)
 
-1. **Comprobar los datos de ejemplo** (con WAMP arrancado):
-   ```bash
-   mysql -u root -h 127.0.0.1 -P 3306 misterplan -e "SELECT COUNT(*) reservas FROM reserva;"
-   ```
-   Si no da 12: `mysql -u root -h 127.0.0.1 -P 3306 --default-character-set=utf8mb4 misterplan < database/reservas.sql`
-2. **Fase 4 — API** (propuesta pendiente de aprobación):
-   - `src/Http/Request.php`: método, ruta, query y cuerpo JSON (JSON mal formado → 400).
-   - `src/Http/JsonResponse.php`: JSON homogéneo, código HTTP y cabeceras de seguridad.
-   - `src/Http/Router.php`: método + ruta → controlador; 404 ruta desconocida, 405 método no permitido.
-   - `src/Validation/ReservaValidator.php`: datos de creación y filtros; lista cerrada de campos; longitudes como en el SQL (nombre 120, email 254, alojamiento 150, notas 1000); importe > 0 con máximo 2 decimales.
-   - `src/Controller/ReservaApiController.php`: los 4 endpoints.
-   - `public/index.php`: front controller + manejador de errores centralizado (sin trazas si `APP_DEBUG=false`).
-   - Exigir `Content-Type: application/json` en escrituras (alternativa a CSRF, justificar en el README).
-   - **Hecho cuando:** los 4 endpoints responden con los códigos de D2, probado con `curl`.
-   - Commit previsto: `feat: implement reservation API`.
-3. Fase 5: importar el esquema en `misterplan_test`, `phpunit.xml` y convertir las pruebas manuales de las Fases 3–4 en tests.
-4. Elegir hosting antes de la Fase 6 (riesgos: Composer/SSH, raíz en `public/`, versión de MariaDB y soporte de `CHECK`).
+1. **Fase 5 — PHPUnit y revisión de seguridad** (propuesta pendiente de aprobación):
+   - Importar el esquema en `misterplan_test` y crear `phpunit.xml` (suites `Unit` e `Integration`) y un `.env.testing` fuera de Git.
+   - Tests unitarios de `ReservaValidator` (tipos, fechas, importe, filtros, id) y de `Router` (404/405).
+   - Tests de integración de `ReservaService` contra `misterplan_test`: crear + evento, transiciones válidas e inválidas (409), 404, rollback.
+   - Checklist de seguridad documentada (para el README).
+   - **Hecho cuando:** `vendor/bin/phpunit` en verde, visto en el equipo de Coral.
+   - Commit previsto: `test: cover validation, transitions and API errors`.
+2. Elegir hosting antes de la Fase 6 (riesgos: Composer/SSH, raíz en `public/`, versión de MariaDB y soporte de `CHECK`).
+
+### Pendientes anotados para el README
+
+- **Limitación:** la conexión PDO se abre antes de enrutar; con la BD caída, una ruta inexistente da 500 en vez de 404 (mejora: conexión perezosa).
+- `fecha_entrada` en el pasado permitida (D22). Sin autenticación ni CSRF: alcance interno (D27).
+- `idx_reserva_nombre` no se usa con `LIKE '%x%'` (D9). Sin paginación ni control de solapes.
+- `APP_DEBUG=false` obligatorio en el despliegue (checklist de la Fase 9).
 
 ---
 
@@ -223,3 +247,4 @@ Plan temporal de referencia: `Plan_ejecucion_MisterPlan.docx` (≈53 h; hito «b
 - **17/10/2026:** cambio a MySQL 8.3 de WAMP; Fase 1 aprobada (D1–D7); proyecto movido a `C:\dev\pruebatecnicaMP`; enunciado original contrastado; plan con estimación de tiempos (`Plan_ejecucion_MisterPlan.docx`).
 - **18/10/2026:** remoto `origin` reconfigurado; BD `misterplan` y `misterplan_test` creadas; usuario `misterplan_app`; estructura de carpetas creada.
 - **19/10/2026:** archivos base (Composer, `.gitignore`, `.env.example`, `.gitattributes`); `reservas.sql` con 12 reservas y 21 eventos; contraseña de la app regenerada; carpeta conectada a Claude; Fase 3 completa (Database, excepciones, repositorio, servicio) con rollback verificado. Commits `74532ce` → `b040b7a`.
+- **19–21/10/2026:** Fase 4 completa. Propuesta revisada por una IA externa (cambios obligatorios aplicados: tipos estrictos, 413/415, límite de cuerpo, 404/405, filtros). Archivos `Http/*`, `ReservaValidator`, `ReservaApiController`, `public/index.php` y `tests/api-smoke.sh`. Smoke test 21/21 en el equipo de Coral. Commit `ea79f0c`.
