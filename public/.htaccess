@@ -1,0 +1,7 @@
+# Apache (hosting): toda petición que no sea un archivo real de public/ (CSS, JS, favicon)
+# la atiende index.php, que hace de front controller y decide la ruta.
+# Equivale a lo que hace "php -S ... public/index.php" en local.
+FallbackResource /index.php
+
+# No listar el contenido de las carpetas.
+Options -Indexes
