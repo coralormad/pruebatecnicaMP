@@ -11,7 +11,8 @@ use RuntimeException;
  * Crea la conexión PDO a MySQL/MariaDB a partir del archivo .env.
  *
  * No guarda estado: devuelve una conexión nueva en cada llamada.
- * El front controller la crea una vez por petición y la pasa a quien la necesite.
+ * El front controller la crea como mucho una vez por petición, solo si la ruta la necesita
+ * (conexión perezosa), y la pasa a quien la necesite.
  */
 final class Database
 {
