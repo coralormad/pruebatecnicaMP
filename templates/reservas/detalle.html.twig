@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Reserva #{{ reserva.id }}{% endblock %}
+
+{% block content %}
+    <p><a href="/reservas">← Volver al listado</a></p>
+
+    <h1>Reserva #{{ reserva.id }} {% include 'reservas/_estado.html.twig' with {estado: reserva.estado} only %}</h1>
+
+    <section class="tarjeta" aria-labelledby="titulo-datos">
+        <h2 id="titulo-datos">Datos de la reserva</h2>
+        <dl class="datos">
+            <dt>Huésped</dt>
+            <dd>{{ reserva.nombre_huesped }}</dd>
+
+            <dt>Email</dt>
+            <dd>{{ reserva.email_huesped }}</dd>
+
+            <dt>Alojamiento</dt>
+            <dd>{{ reserva.nombre_alojamiento }}</dd>
+
+            <dt>Entrada</dt>
+            <dd>{{ reserva.fecha_entrada|date('d/m/Y', false) }}</dd>
+
+            <dt>Salida</dt>
+            <dd>{{ reserva.fecha_salida|date('d/m/Y', false) }}</dd>
+
+            <dt>Importe</dt>
+            <dd>{{ reserva.importe|number_format(2, ',', '.') }} €</dd>
+
+            <dt>Notas</dt>
+            <dd class="notas">{{ reserva.notas ?? 'Sin notas' }}</dd>
+
+            <dt>Creada</dt>
+            {# DATETIME guardado en UTC: |date lo convierte a Europe/Madrid (TwigFactory) #}
+            <dd>{{ reserva.fecha_creacion|date('d/m/Y H:i') }}</dd>
+        </dl>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="titulo-historial">
+        <h2 id="titulo-historial">Historial</h2>
+
+        {% set etiquetas = {creacion: 'Creada', confirmacion: 'Confirmada', cancelacion: 'Cancelada'} %}
+
+        <ol class="timeline">
+            {% for evento in reserva.eventos %}
+                <li class="timeline__evento timeline__evento--{{ evento.tipo }}">
+                    <time datetime="{{ evento.fecha_creacion|date('c') }}">{{ evento.fecha_creacion|date('d/m/Y H:i') }}</time>
+                    <strong>{{ etiquetas[evento.tipo] }}</strong>
+                    <span>{{ evento.descripcion }}</span>
+                </li>
+            {% endfor %}
+        </ol>
+    </section>
+{% endblock %}

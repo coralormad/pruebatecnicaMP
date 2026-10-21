@@ -1,0 +1,85 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Listado{% endblock %}
+
+{% block content %}
+    <h1>Reservas</h1>
+
+    {# Formulario GET: sin JavaScript también filtra (recarga la página con los filtros en la URL). #}
+    <form class="filtros" method="get" action="/reservas" role="search" aria-label="Filtrar reservas">
+        <div class="campo">
+            <label for="filtro-estado">Estado</label>
+            <select id="filtro-estado" name="estado">
+                <option value="">Todos</option>
+                {% for estado in estados %}
+                    <option value="{{ estado }}" {{ filtros.estado|default('') == estado ? 'selected' }}>{{ estado|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="campo">
+            <label for="filtro-nombre">Huésped</label>
+            <input id="filtro-nombre" name="nombre" type="search" maxlength="120"
+                   value="{{ filtros.nombre|default('') }}" placeholder="Nombre o parte del nombre">
+        </div>
+
+        <div class="campo">
+            <label for="filtro-desde">Desde</label>
+            <input id="filtro-desde" name="desde" type="date" value="{{ filtros.desde|default('') }}">
+        </div>
+
+        <div class="campo">
+            <label for="filtro-hasta">Hasta</label>
+            <input id="filtro-hasta" name="hasta" type="date" value="{{ filtros.hasta|default('') }}">
+        </div>
+
+        <div class="filtros__acciones">
+            <button type="submit">Filtrar</button>
+            <a href="/reservas">Limpiar</a>
+        </div>
+    </form>
+
+    <p class="ayuda">«Desde / Hasta» muestra las reservas cuya estancia ocupa alguna noche de ese periodo.</p>
+
+    <p class="resumen">{{ reservas|length }} {{ reservas|length == 1 ? 'reserva' : 'reservas' }}</p>
+
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <caption class="visualmente-oculto">Listado de reservas</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Huésped</th>
+                    <th scope="col">Alojamiento</th>
+                    <th scope="col">Entrada</th>
+                    <th scope="col">Salida</th>
+                    <th scope="col" class="num">Importe</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reserva in reservas %}
+                    <tr>
+                        <td data-label="Huésped">
+                            {{ reserva.nombre_huesped }}
+                            <small class="secundario">{{ reserva.email_huesped }}</small>
+                        </td>
+                        <td data-label="Alojamiento">{{ reserva.nombre_alojamiento }}</td>
+                        {# Fechas DATE: false = sin conversión de zona horaria #}
+                        <td data-label="Entrada">{{ reserva.fecha_entrada|date('d/m/Y', false) }}</td>
+                        <td data-label="Salida">{{ reserva.fecha_salida|date('d/m/Y', false) }}</td>
+                        <td data-label="Importe" class="num">{{ reserva.importe|number_format(2, ',', '.') }} €</td>
+                        <td data-label="Estado">{% include 'reservas/_estado.html.twig' with {estado: reserva.estado} only %}</td>
+                        <td class="acciones">
+                            <a href="/reservas/{{ reserva.id }}">Ver detalle</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="vacio">No hay reservas con estos filtros.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

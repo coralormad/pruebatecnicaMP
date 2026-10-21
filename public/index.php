@@ -5,23 +5,22 @@ declare(strict_types=1);
 /**
  * Front controller: único punto de entrada PHP de la aplicación.
  * 1. Configura PHP para no mostrar errores.
- * 2. Construye las dependencias y registra las rutas.
+ * 2. Construye las dependencias y registra las rutas (API JSON y vistas HTML).
  * 3. Despacha la petición.
- * 4. Convierte cualquier excepción en una respuesta JSON (manejo de errores centralizado).
+ * 4. Convierte cualquier excepción en una respuesta (ManejadorErrores: JSON en /api, HTML en el resto).
  */
 
 use App\Controller\ReservaApiController;
+use App\Controller\ReservaViewController;
 use App\Database;
-use App\Exception\ConflictException;
-use App\Exception\NotFoundException;
-use App\Exception\ValidationException;
-use App\Http\HttpException;
 use App\Http\JsonResponse;
+use App\Http\ManejadorErrores;
 use App\Http\Request;
 use App\Http\Router;
 use App\Repository\ReservaRepository;
 use App\Service\ReservaService;
 use App\Validation\ReservaValidator;
+use App\View\TwigFactory;
 
 // Servidor de desarrollo (php -S): los archivos estáticos existentes (CSS, JS) se sirven tal cual.
 if (PHP_SAPI === 'cli-server') {
@@ -37,6 +36,9 @@ ini_set('log_errors', '1');
 error_reporting(E_ALL);
 header_remove('X-Powered-By'); // no revelar la versión de PHP
 
+// PHP trabaja en UTC, igual que la conexión a la BD (Database::connect). Twig convierte a Madrid al mostrar.
+date_default_timezone_set('UTC');
+
 // Warnings y notices se convierten en excepciones: acaban en un 500 controlado, no en HTML suelto.
 set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
     if ((error_reporting() & $severity) === 0) {
@@ -48,50 +50,47 @@ set_error_handler(static function (int $severity, string $message, string $file,
 $raiz = dirname(__DIR__);
 require $raiz . '/vendor/autoload.php';
 
+$request = Request::fromGlobals();
+$esApi = $request->getPath() === '/api' || str_starts_with($request->getPath(), '/api/');
 $debug = false;
+$twig = null;
 
 try {
     $config = Database::loadConfig($raiz . '/.env');
     $debug = strtolower($config['APP_DEBUG'] ?? 'false') === 'true';
+    $twig = TwigFactory::create($raiz . '/templates');
+    $validador = new ReservaValidator();
 
-    // Conexión perezosa: el controlador (y la conexión a la BD) se crea la primera vez
+    // Conexión perezosa: el servicio (y la conexión a la BD) se crea la primera vez
     // que una ruta lo necesita. Así una ruta inexistente da 404 aunque la BD esté caída.
-    $controlador = null;
-    $api = static function () use ($config, &$controlador): ReservaApiController {
-        if ($controlador === null) {
+    $servicio = null;
+    $obtenerServicio = static function () use ($config, &$servicio): ReservaService {
+        if ($servicio === null) {
             $pdo = Database::connect($config);
-            $controlador = new ReservaApiController(
-                new ReservaService($pdo, new ReservaRepository($pdo)),
-                new ReservaValidator(),
-            );
+            $servicio = new ReservaService($pdo, new ReservaRepository($pdo));
         }
 
-        return $controlador;
+        return $servicio;
     };
+    $api = static fn (): ReservaApiController => new ReservaApiController($obtenerServicio(), $validador);
+    $vistas = static fn (): ReservaViewController => new ReservaViewController($obtenerServicio(), $validador, $twig);
 
     $router = new Router();
+
+    // Vistas HTML (Twig)
+    $router->get('/', static fn (Request $r) => $vistas()->listado($r));
+    $router->get('/reservas', static fn (Request $r) => $vistas()->listado($r));
+    $router->get('/reservas/{id}', static fn (Request $r, array $p) => $vistas()->detalle($r, $p));
+
+    // API JSON
     $router->get('/api/reservas', static fn (Request $r): JsonResponse => $api()->listar($r));
     $router->post('/api/reservas', static fn (Request $r): JsonResponse => $api()->crear($r));
     $router->get('/api/reservas/{id}', static fn (Request $r, array $p): JsonResponse => $api()->detalle($r, $p));
     $router->patch('/api/reservas/{id}/estado', static fn (Request $r, array $p): JsonResponse => $api()->cambiarEstado($r, $p));
 
-    $response = $router->dispatch(Request::fromGlobals());
-} catch (HttpException $e) {
-    $response = JsonResponse::error($e->getStatus(), $e->getMessage(), $e->getFields(), $e->getHeaders());
-} catch (ValidationException $e) {
-    $response = JsonResponse::error(422, $e->getMessage(), $e->getErrors());
-} catch (NotFoundException $e) {
-    $response = JsonResponse::error(404, $e->getMessage());
-} catch (ConflictException $e) {
-    $response = JsonResponse::error(409, $e->getMessage());
+    $response = $router->dispatch($request);
 } catch (Throwable $e) {
-    // Cualquier otro error (BD caída, bug...): detalle al log, mensaje genérico al cliente.
-    error_log(sprintf('[%s] %s en %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine()));
-
-    $mensaje = $debug
-        ? sprintf('%s: %s (%s:%d)', $e::class, $e->getMessage(), $e->getFile(), $e->getLine())
-        : 'Error interno del servidor.';
-    $response = JsonResponse::error(500, $mensaje);
+    $response = (new ManejadorErrores($twig, $debug))->responder($e, $esApi);
 }
 
 try {
