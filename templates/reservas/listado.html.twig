@@ -5,8 +5,72 @@
 {% block content %}
     <h1>Reservas</h1>
 
+    {# Avisos de carga, éxito y error (los rellena el JavaScript). #}
+    <div id="avisos" class="aviso" role="status" aria-live="polite" hidden></div>
+
+    {# La creación usa la API (JSON), así que solo se muestra con JavaScript. #}
+    <details class="tarjeta nueva-reserva requiere-js">
+        <summary>Nueva reserva</summary>
+
+        <form id="form-crear" novalidate>
+            {# novalidate: los errores los pinta el JS (los del navegador y los del servidor) junto a cada campo #}
+            <div class="formulario">
+                <div class="campo">
+                    <label for="nombre_huesped">Nombre del huésped *</label>
+                    <input id="nombre_huesped" name="nombre_huesped" maxlength="120" required
+                           autocomplete="name" aria-describedby="error-nombre_huesped">
+                    <p id="error-nombre_huesped" class="error-campo"></p>
+                </div>
+
+                <div class="campo">
+                    <label for="email_huesped">Email *</label>
+                    <input id="email_huesped" name="email_huesped" type="email" maxlength="254" required
+                           autocomplete="email" aria-describedby="error-email_huesped">
+                    <p id="error-email_huesped" class="error-campo"></p>
+                </div>
+
+                <div class="campo">
+                    <label for="nombre_alojamiento">Alojamiento *</label>
+                    <input id="nombre_alojamiento" name="nombre_alojamiento" maxlength="150" required
+                           aria-describedby="error-nombre_alojamiento">
+                    <p id="error-nombre_alojamiento" class="error-campo"></p>
+                </div>
+
+                <div class="campo">
+                    <label for="fecha_entrada">Entrada *</label>
+                    <input id="fecha_entrada" name="fecha_entrada" type="date" required
+                           aria-describedby="error-fecha_entrada">
+                    <p id="error-fecha_entrada" class="error-campo"></p>
+                </div>
+
+                <div class="campo">
+                    <label for="fecha_salida">Salida *</label>
+                    <input id="fecha_salida" name="fecha_salida" type="date" required
+                           aria-describedby="error-fecha_salida">
+                    <p id="error-fecha_salida" class="error-campo"></p>
+                </div>
+
+                <div class="campo">
+                    <label for="importe">Importe (€) *</label>
+                    <input id="importe" name="importe" inputmode="decimal" maxlength="11" required
+                           placeholder="120,50" aria-describedby="error-importe">
+                    <p id="error-importe" class="error-campo"></p>
+                </div>
+
+                <div class="campo campo--ancho">
+                    <label for="notas">Notas</label>
+                    <textarea id="notas" name="notas" maxlength="1000" rows="3"
+                              aria-describedby="error-notas"></textarea>
+                    <p id="error-notas" class="error-campo"></p>
+                </div>
+            </div>
+
+            <button type="submit">Crear reserva</button>
+        </form>
+    </details>
+
     {# Formulario GET: sin JavaScript también filtra (recarga la página con los filtros en la URL). #}
-    <form class="filtros" method="get" action="/reservas" role="search" aria-label="Filtrar reservas">
+    <form id="form-filtros" class="filtros" method="get" action="/reservas" role="search" aria-label="Filtrar reservas">
         <div class="campo">
             <label for="filtro-estado">Estado</label>
             <select id="filtro-estado" name="estado">
@@ -35,15 +99,15 @@
 
         <div class="filtros__acciones">
             <button type="submit">Filtrar</button>
-            <a href="/reservas">Limpiar</a>
+            <a id="limpiar-filtros" href="/reservas">Limpiar</a>
         </div>
     </form>
 
     <p class="ayuda">«Desde / Hasta» muestra las reservas cuya estancia ocupa alguna noche de ese periodo.</p>
 
-    <p class="resumen">{{ reservas|length }} {{ reservas|length == 1 ? 'reserva' : 'reservas' }}</p>
+    <p id="resumen" class="resumen">{{ reservas|length }} {{ reservas|length == 1 ? 'reserva' : 'reservas' }}</p>
 
-    <div class="tabla-contenedor">
+    <div id="contenedor-tabla" class="tabla-contenedor">
         <table class="tabla">
             <caption class="visualmente-oculto">Listado de reservas</caption>
             <thead>
@@ -57,7 +121,7 @@
                     <th scope="col"><span class="visualmente-oculto">Acciones</span></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="cuerpo-tabla">
                 {% for reserva in reservas %}
                     <tr>
                         <td data-label="Huésped">
@@ -72,6 +136,10 @@
                         <td data-label="Estado">{% include 'reservas/_estado.html.twig' with {estado: reserva.estado} only %}</td>
                         <td class="acciones">
                             <a href="/reservas/{{ reserva.id }}">Ver detalle</a>
+                            {% if reserva.estado != 'cancelada' %}
+                                <button type="button" class="boton-peligro requiere-js" data-accion="cancelar"
+                                        data-id="{{ reserva.id }}" data-nombre="{{ reserva.nombre_huesped }}">Cancelar</button>
+                            {% endif %}
                         </td>
                     </tr>
                 {% else %}
@@ -82,4 +150,37 @@
             </tbody>
         </table>
     </div>
+
+    {#
+        Moldes para el JavaScript: <template> no se muestra ni se ejecuta.
+        listado.js los clona y rellena con textContent (misma estructura que las filas de arriba).
+    #}
+    <template id="plantilla-fila">
+        <tr>
+            <td data-label="Huésped">
+                <span data-campo="nombre_huesped"></span>
+                <small class="secundario" data-campo="email_huesped"></small>
+            </td>
+            <td data-label="Alojamiento" data-campo="nombre_alojamiento"></td>
+            <td data-label="Entrada" data-campo="fecha_entrada"></td>
+            <td data-label="Salida" data-campo="fecha_salida"></td>
+            <td data-label="Importe" class="num" data-campo="importe"></td>
+            <td data-label="Estado" data-campo="estado"></td>
+            <td class="acciones">
+                <a data-campo="detalle" href="#">Ver detalle</a>
+                <button type="button" class="boton-peligro" data-accion="cancelar">Cancelar</button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="plantilla-vacia">
+        <tr>
+            <td colspan="7" class="vacio">No hay reservas con estos filtros.</td>
+        </tr>
+    </template>
+
+{% endblock %}
+
+{% block scripts %}
+    <script type="module" src="/assets/js/listado.js"></script>
 {% endblock %}
