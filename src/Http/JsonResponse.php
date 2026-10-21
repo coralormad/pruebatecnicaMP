@@ -9,7 +9,7 @@ namespace App\Http;
  *   éxito -> {"data": ...}
  *   error -> {"error": {"message": "...", "fields": {...}}}
  */
-final class JsonResponse
+final class JsonResponse implements Response
 {
     /**
      * @param array<string, mixed>  $payload
