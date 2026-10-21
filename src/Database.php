@@ -75,6 +75,9 @@ final class Database
             // Consultas preparadas reales en el servidor MySQL, no simuladas por PHP:
             // la consulta y los datos viajan por separado y los enteros llegan como int.
             PDO::ATTR_EMULATE_PREPARES => false,
+            // La sesión trabaja en UTC: CURRENT_TIMESTAMP (fecha_creacion) se guarda igual
+            // en local y en el hosting, sea cual sea la zona del servidor.
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+00:00'",
         ]);
     }
 }
