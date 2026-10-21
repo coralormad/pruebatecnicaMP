@@ -5,7 +5,19 @@
 {% block content %}
     <p><a href="/reservas">← Volver al listado</a></p>
 
-    <h1>Reserva #{{ reserva.id }} {% include 'reservas/_estado.html.twig' with {estado: reserva.estado} only %}</h1>
+    <h1>
+        Reserva #{{ reserva.id }}
+        <span id="estado-actual">{% include 'reservas/_estado.html.twig' with {estado: reserva.estado} only %}</span>
+    </h1>
+
+    <div id="avisos" class="aviso" role="status" aria-live="polite" hidden></div>
+
+    {% if reserva.estado != 'cancelada' %}
+        <p>
+            <button type="button" class="boton-peligro requiere-js" data-accion="cancelar"
+                    data-id="{{ reserva.id }}" data-nombre="{{ reserva.nombre_huesped }}">Cancelar reserva</button>
+        </p>
+    {% endif %}
 
     <section class="tarjeta" aria-labelledby="titulo-datos">
         <h2 id="titulo-datos">Datos de la reserva</h2>
@@ -42,7 +54,7 @@
 
         {% set etiquetas = {creacion: 'Creada', confirmacion: 'Confirmada', cancelacion: 'Cancelada'} %}
 
-        <ol class="timeline">
+        <ol id="historial" class="timeline">
             {% for evento in reserva.eventos %}
                 <li class="timeline__evento timeline__evento--{{ evento.tipo }}">
                     <time datetime="{{ evento.fecha_creacion|date('c') }}">{{ evento.fecha_creacion|date('d/m/Y H:i') }}</time>
@@ -52,4 +64,17 @@
             {% endfor %}
         </ol>
     </section>
+
+    {# Molde de un evento para detalle.js (misma estructura que los <li> de arriba). #}
+    <template id="plantilla-evento">
+        <li class="timeline__evento">
+            <time></time>
+            <strong></strong>
+            <span></span>
+        </li>
+    </template>
+{% endblock %}
+
+{% block scripts %}
+    <script type="module" src="/assets/js/detalle.js"></script>
 {% endblock %}

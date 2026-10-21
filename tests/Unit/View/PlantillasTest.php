@@ -117,6 +117,32 @@ final class PlantillasTest extends TestCase
         $this->assertStringContainsString('Sin notas', $html);
     }
 
+    public function testNoHayJavaScriptEnLineaEnLasPlantillas(): void
+    {
+        $paginas = [
+            $this->listado([self::reserva()]),
+            $this->twig->render('reservas/detalle.html.twig', ['reserva' => self::reserva()]),
+        ];
+
+        foreach ($paginas as $html) {
+            // Solo <script src="...">: la CSP (default-src 'self') bloquearía cualquier script en línea.
+            $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>/i', $html);
+            // Ni manejadores en atributos (onclick="...", onsubmit="...").
+            $this->assertDoesNotMatchRegularExpression('/\son[a-z]+\s*=/i', $html);
+            $this->assertMatchesRegularExpression('#<script type="module" src="/assets/js/[a-z]+\.js"></script>#', $html);
+        }
+    }
+
+    public function testLaReservaCanceladaNoTieneBotonDeCancelar(): void
+    {
+        $listado = $this->listado([self::reserva(['estado' => 'cancelada'])]);
+        $detalle = $this->twig->render('reservas/detalle.html.twig', ['reserva' => self::reserva(['estado' => 'cancelada'])]);
+
+        // Solo queda el botón del <template> (molde para el JS), no uno en la fila.
+        $this->assertSame(1, substr_count($listado, 'data-accion="cancelar"'));
+        $this->assertStringNotContainsString('data-accion="cancelar"', $detalle);
+    }
+
     public function testLaPaginaDeErrorEscapaElMensaje(): void
     {
         $html = $this->twig->render('error.html.twig', ['status' => 404, 'mensaje' => self::XSS]);
