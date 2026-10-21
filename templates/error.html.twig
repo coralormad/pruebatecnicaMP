@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% set titulos = {
+    400: 'Petición no válida',
+    404: 'No encontrado',
+    405: 'Método no permitido',
+    500: 'Error interno'
+} %}
+
+{% block title %}Error {{ status }}{% endblock %}
+
+{% block content %}
+    <section class="tarjeta error">
+        <h1>{{ titulos[status] ?? 'Error' }} <small>({{ status }})</small></h1>
+        <p>{{ mensaje }}</p>
+        <p><a href="/reservas">Volver al listado de reservas</a></p>
+    </section>
+{% endblock %}

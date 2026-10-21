@@ -1,0 +1,187 @@
+/* Estilos básicos y responsive. Sin librerías: el objetivo es que se entienda y no se rompa en móvil. */
+
+:root {
+    --texto: #1f2933;
+    --secundario: #5f6b7a;
+    --fondo: #f5f7fa;
+    --tarjeta: #ffffff;
+    --borde: #d9e0e8;
+    --acento: #1d5fa8;
+    --pendiente: #8a5a00;
+    --pendiente-fondo: #fff4d6;
+    --confirmada: #1e6b34;
+    --confirmada-fondo: #e3f5e8;
+    --cancelada: #9b1c1c;
+    --cancelada-fondo: #fde8e8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    color: var(--texto);
+    background: var(--fondo);
+}
+
+a { color: var(--acento); }
+
+.cabecera {
+    padding: 0.75rem 1rem;
+    background: var(--acento);
+}
+.cabecera__marca {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.contenido {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+h1 { font-size: 1.6rem; margin: 0.5rem 0 1rem; }
+h2 { font-size: 1.2rem; margin-top: 0; }
+
+/* Solo para lectores de pantalla */
+.visualmente-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* ---------- Filtros ---------- */
+.filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.75rem;
+    align-items: end;
+    padding: 1rem;
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 0.5rem;
+}
+.campo { display: flex; flex-direction: column; gap: 0.25rem; }
+.campo label { font-weight: 600; font-size: 0.9rem; }
+
+input, select, button {
+    font: inherit;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--borde);
+    border-radius: 0.35rem;
+}
+button {
+    background: var(--acento);
+    color: #fff;
+    border-color: var(--acento);
+    cursor: pointer;
+}
+.filtros__acciones { display: flex; gap: 0.75rem; align-items: center; }
+
+.ayuda, .secundario { color: var(--secundario); font-size: 0.9rem; }
+.secundario { display: block; }
+.resumen { font-weight: 600; }
+
+/* ---------- Tabla ---------- */
+.tabla-contenedor { overflow-x: auto; }
+.tabla {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--tarjeta);
+}
+.tabla th, .tabla td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--borde);
+    text-align: left;
+    vertical-align: top;
+}
+.tabla th { background: #eef2f6; font-size: 0.9rem; }
+.tabla .num { text-align: right; white-space: nowrap; }
+.vacio { text-align: center; color: var(--secundario); }
+
+/* ---------- Estado ---------- */
+.estado {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+.estado--pendiente  { color: var(--pendiente);  background: var(--pendiente-fondo); }
+.estado--confirmada { color: var(--confirmada); background: var(--confirmada-fondo); }
+.estado--cancelada  { color: var(--cancelada);  background: var(--cancelada-fondo); }
+
+/* ---------- Detalle ---------- */
+.tarjeta {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 0.5rem;
+}
+.datos {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1rem;
+    margin: 0;
+}
+.datos dt { font-weight: 600; }
+.datos dd { margin: 0; }
+.notas { white-space: pre-line; } /* respeta los saltos de línea sin usar |raw ni nl2br */
+
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1rem;
+    border-left: 3px solid var(--borde);
+}
+.timeline__evento {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.75rem;
+    padding: 0 0 1rem 0.75rem;
+}
+.timeline__evento::before {
+    content: "";
+    position: absolute;
+    left: -1.55rem;
+    top: 0.35rem;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background: var(--secundario);
+}
+.timeline__evento--creacion::before     { background: var(--pendiente); }
+.timeline__evento--confirmacion::before { background: var(--confirmada); }
+.timeline__evento--cancelacion::before  { background: var(--cancelada); }
+.timeline time { color: var(--secundario); }
+.timeline span { flex-basis: 100%; }
+
+/* ---------- Móvil: cada fila de la tabla se muestra como una tarjeta ---------- */
+@media (max-width: 40rem) {
+    .tabla thead { display: none; }
+    .tabla, .tabla tbody, .tabla tr, .tabla td { display: block; width: 100%; }
+    .tabla tr {
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--borde);
+        border-radius: 0.5rem;
+    }
+    .tabla td, .tabla .num { border-bottom: none; padding: 0.35rem 0.75rem; text-align: left; }
+    .tabla td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--secundario);
+    }
+    .datos { grid-template-columns: 1fr; }
+    .datos dd { margin-bottom: 0.5rem; }
+}

@@ -1,0 +1,24 @@
+{#
+    Plantilla base: el esqueleto HTML común a todas las páginas.
+    Las vistas la heredan con {% extends %} y rellenan los bloques.
+#}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Reservas{% endblock %} · Reservas de alojamiento</title>
+    <link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body>
+    <header class="cabecera">
+        <a class="cabecera__marca" href="/reservas">Reservas de alojamiento</a>
+    </header>
+
+    <main class="contenido">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
