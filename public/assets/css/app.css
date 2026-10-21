@@ -102,6 +102,7 @@ button {
     vertical-align: top;
 }
 .tabla th { background: #eef2f6; font-size: 0.9rem; }
+.tabla .acciones { white-space: nowrap; }
 .tabla .num { text-align: right; white-space: nowrap; }
 .vacio { text-align: center; color: var(--secundario); }
 
@@ -185,3 +186,36 @@ button {
     .datos { grid-template-columns: 1fr; }
     .datos dd { margin-bottom: 0.5rem; }
 }
+
+/* ---------- Interacción (Fase 7) ---------- */
+
+/* Los controles que necesitan JavaScript solo se muestran si se ha cargado (ui.js añade la clase "js"). */
+html:not(.js) .requiere-js { display: none; }
+
+.aviso { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--borde); background: var(--tarjeta); }
+.aviso--exito { color: var(--confirmada); background: var(--confirmada-fondo); border-color: currentColor; }
+.aviso--error { color: var(--cancelada); background: var(--cancelada-fondo); border-color: currentColor; }
+
+[aria-busy="true"] { opacity: 0.6; cursor: progress; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.boton-peligro {
+    margin-left: 0.5rem;
+    padding: 0.2rem 0.6rem;
+    background: transparent;
+    color: var(--cancelada);
+    border-color: var(--cancelada);
+    font-size: 0.9rem;
+}
+.nueva-reserva { margin-bottom: 1rem; }
+.nueva-reserva summary { font-weight: 600; cursor: pointer; }
+.formulario {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.5rem 1rem;
+    margin: 1rem 0;
+}
+.campo--ancho { grid-column: 1 / -1; }
+textarea { font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--borde); border-radius: 0.35rem; }
+.error-campo { min-height: 1.2em; margin: 0; color: var(--cancelada); font-size: 0.85rem; }
+[aria-invalid="true"] { border-color: var(--cancelada); outline-color: var(--cancelada); }
