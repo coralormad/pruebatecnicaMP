@@ -4,19 +4,20 @@ Aplicación para gestionar reservas de alojamiento: una **API JSON en PHP nativo
 
 Prueba técnica para el puesto de Desarrollador/a Junior PHP en MisterPlan.
 
-**Demo:** _pendiente de publicar_
+**Demo:** https://coralormad.alwaysdata.net · API: https://coralormad.alwaysdata.net/api/reservas
 
 ## Índice
 
 1. [Stack](#stack)
 2. [Instalación en local](#instalación-en-local)
-3. [Uso](#uso)
-4. [API](#api)
-5. [Pruebas](#pruebas)
-6. [Arquitectura y decisiones](#arquitectura-y-decisiones)
-7. [Seguridad](#seguridad)
-8. [Limitaciones y qué haría con más tiempo](#limitaciones-y-qué-haría-con-más-tiempo)
-9. [Escalabilidad: 1.000 reservas por hora](#escalabilidad-1000-reservas-por-hora)
+3. [Despliegue](#despliegue)
+4. [Uso](#uso)
+5. [API](#api)
+6. [Pruebas](#pruebas)
+7. [Arquitectura y decisiones](#arquitectura-y-decisiones)
+8. [Seguridad](#seguridad)
+9. [Limitaciones y qué haría con más tiempo](#limitaciones-y-qué-haría-con-más-tiempo)
+10. [Escalabilidad: 1.000 reservas por hora](#escalabilidad-1000-reservas-por-hora)
 
 ## Stack
 
@@ -60,8 +61,10 @@ La aplicación no se conecta como `root`: su usuario solo puede leer, insertar y
 ### 3. Importar el esquema y los datos de ejemplo
 
 ```bash
-mysql -u root misterplan < database/reservas.sql
+mysql -u root -p misterplan < database/reservas.sql
 ```
+
+> `-p` pide la contraseña de `root`. En WAMP suele estar vacía: basta con pulsar Enter.
 
 `database/reservas.sql` crea las tablas `reserva` y `reserva_evento` y carga 12 reservas en los tres estados, con su historial. Se puede volver a importar en cualquier momento para dejar los datos como al principio. En phpMyAdmin: seleccionar la base `misterplan` → **Importar** → elegir el archivo.
 
@@ -93,6 +96,21 @@ php -S localhost:8000 -t public
 Abrir **http://localhost:8000**.
 
 > Con Apache, el `DocumentRoot` debe ser la carpeta `public/`. El archivo `public/.htaccess` envía todas las rutas a `index.php`.
+
+## Despliegue
+
+Publicada en **alwaysdata** (plan gratuito): Apache + PHP, MariaDB y acceso SSH.
+
+1. Por SSH: `git clone` del repositorio y `composer install --no-dev --optimize-autoloader`.
+2. `.env` con los datos de la base de datos del hosting, con permisos `600`.
+3. Importación de `database/reservas.sql` con el cliente `mysql`. La contraseña se lee de `~/.my.cnf` (permisos `600`), no de la línea de comandos.
+4. En el panel, la raíz web del sitio apunta a `public/`. El resto del proyecto (`.env`, `src/`, `vendor/`) queda fuera de la web.
+
+**Comprobado desde fuera:** `tests/api-smoke.sh https://coralormad.alwaysdata.net` → 21 OK, 0 fallos. `/.env`, `/vendor/…`, `/src/…` y `/composer.json` → 404, y `/../.env` → 400.
+
+**Para actualizar:** `git pull` en el servidor (y `composer install --no-dev` si cambian las dependencias).
+
+**Por qué alwaysdata:** permite elegir la raíz web, tiene SSH para Composer y no bloquea clientes como `curl`. InfinityFree, la otra opción gratuita valorada, sí los bloquea, y la API no se podría probar.
 
 ## Uso
 
@@ -271,8 +289,8 @@ bash tests/api-smoke.sh                    # contrato HTTP con curl (servidor ar
 **Tests de integración.** Necesitan una base de datos aparte, porque **vacían las tablas** en cada test:
 
 ```bash
-mysql -u root -e "CREATE DATABASE misterplan_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL ON misterplan_test.* TO 'misterplan_app'@'localhost';"
-mysql -u root misterplan_test < database/reservas.sql
+mysql -u root -p -e "CREATE DATABASE misterplan_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL ON misterplan_test.* TO 'misterplan_app'@'localhost';"
+mysql -u root -p misterplan_test < database/reservas.sql
 sed 's/^DB_NAME=.*/DB_NAME=misterplan_test/' .env > .env.testing
 ```
 
@@ -357,6 +375,7 @@ La API recibe datos de fuera, así que no se fía de nada que llegue en la petic
 - **Sin paginación:** el listado devuelve todas las reservas que cumplen los filtros.
 - **Doble envío:** la interfaz desactiva el botón durante la petición, pero un reintento de red podría crear dos reservas.
 - **Sin caché de plantillas Twig.**
+- **Usuario de base de datos en el hosting:** se usa el usuario principal de la cuenta de alwaysdata, con más permisos que el `misterplan_app` de local (`SELECT, INSERT, UPDATE`). En producción real crearía un usuario dedicado con permisos mínimos.
 - **`HEAD` no está soportado** en las rutas GET (responde 405).
 
 **Mejoras**
