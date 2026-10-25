@@ -276,14 +276,14 @@ Responde **200** con la reserva actualizada y su historial.
 ## Pruebas
 
 ```bash
-vendor/bin/phpunit                         # todos los tests (88)
+vendor/bin/phpunit                         # todos los tests (93)
 vendor/bin/phpunit --testsuite Unit        # solo los que no usan base de datos
 bash tests/api-smoke.sh                    # contrato HTTP con curl (servidor arrancado)
 ```
 
 | Suite | Qué cubre |
 |---|---|
-| **Unit** (70) | Validador (tipos, fechas, importe, asignación masiva, filtros, id), router (404, 405 + `Allow`), manejador de errores (código por excepción, 500 sin detalles) y plantillas Twig (herencia, formato español, zona horaria, **escape de HTML**, sin JavaScript en línea) |
+| **Unit** (75) | Validador (tipos, fechas, importe, asignación masiva, filtros, id), router (404, 405 + `Allow`), manejador de errores (código por excepción, 500 sin detalles) y plantillas Twig (herencia, formato español, zona horaria, **escape de HTML**, sin JavaScript en línea) |
 | **Integration** (18) | Servicio y repositorio contra MySQL: creación con su evento, **rollback** si falla el evento, transiciones válidas e inválidas, filtros combinados y bordes del rango, y una **prueba de concurrencia** con dos procesos |
 
 **Tests de integración.** Necesitan una base de datos aparte, porque **vacían las tablas** en cada test:
@@ -340,6 +340,7 @@ tests/             Unit, Integration y smoke test
 | Fechas con hora guardadas en UTC; se muestran en hora de Madrid | Funciona igual en local y en el servidor, sea cual sea su zona horaria. Las horas del `.sql` de ejemplo se interpretan como UTC |
 | 400 frente a 422 | 400 si la petición no se puede interpretar; 422 si se entiende pero los datos no cumplen las reglas, con el error de cada campo |
 | `fecha_entrada` en el pasado permitida | Es una herramienta interna: se pueden registrar reservas tardías |
+| Estancia máxima de 365 noches y entrada como mucho a 2 años vista | Reglas de negocio sencillas que evitan datos absurdos (p. ej., una reserva en el año 9999). Son constantes del validador (`MAX_NOCHES`, `MAX_ANTELACION`) y el JavaScript aplica las mismas |
 | Twig pinta la carga inicial y JavaScript repinta al filtrar | Las vistas se renderizan en el servidor (y funcionan sin JS); el JS clona un `<template>` de Twig, así la estructura de la fila solo está en un sitio |
 | Formato español con los filtros del núcleo de Twig | `number_format` y `date` bastan; no hace falta añadir `twig/intl-extra` |
 
@@ -352,7 +353,7 @@ La API recibe datos de fuera, así que no se fía de nada que llegue en la petic
 | Inyección SQL | Todas las consultas son preparadas, con preparadas nativas (`ATTR_EMULATE_PREPARES = false`); ningún valor del usuario se concatena en el SQL | `ReservaRepository`, `Database` | Revisión de código; tests de filtros contra MySQL; id `1 OR 1=1` → 400 |
 | Comodines en la búsqueda | `%` y `_` del usuario se escapan (`LIKE … ESCAPE '!'`) | `ReservaRepository::escaparLike()` | Test: buscar `%` solo devuelve la reserva que lo contiene |
 | Asignación masiva | Lista cerrada de campos: enviar `estado` o `id` → 422. El `INSERT` solo usa 7 columnas fijas | `ReservaValidator`, `ReservaRepository::insert()` | Tests |
-| Datos inválidos | Validación en el servidor: tipos JSON estrictos, longitudes iguales a las del SQL, fechas reales, salida > entrada, email e importe | `ReservaValidator` | 45 tests unitarios |
+| Datos inválidos | Validación en el servidor: tipos JSON estrictos, longitudes iguales a las del SQL, fechas reales, salida > entrada, estancia y antelación máximas, email e importe | `ReservaValidator` | 49 tests unitarios |
 | Estados incoherentes | Máquina de estados; una transición no permitida → 409 sin modificar nada | `ReservaService` | Tests |
 | Condiciones de carrera | `SELECT … FOR UPDATE` dentro de la transacción | `ReservaService::cambiarEstado()` | Test con dos procesos (falla si se quita el `FOR UPDATE`) |
 | Datos a medias | Reserva y evento en la misma transacción; rollback ante cualquier error | `ReservaService::enTransaccion()` | Test que fuerza el fallo del segundo `INSERT` |

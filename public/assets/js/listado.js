@@ -169,6 +169,22 @@ cuerpoTabla.addEventListener('click', async (evento) => {
 const CAMPOS = ['nombre_huesped', 'email_huesped', 'nombre_alojamiento', 'fecha_entrada', 'fecha_salida', 'importe', 'notas'];
 const IMPORTE = /^\d{1,8}(\.\d{1,2})?$/; // la misma regla que el servidor (DECIMAL(10,2))
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NOCHES = 365;   // las mismas reglas de fechas que ReservaValidator
+const MAX_ANIOS_ANTELACION = 2;
+
+/** "AAAA-MM-DD" -> número de días desde 1970 (en UTC, sin horas ni cambios de hora). */
+function dias(iso) {
+    const [anio, mes, dia] = iso.split('-').map(Number);
+
+    return Date.UTC(anio, mes - 1, dia) / 86_400_000;
+}
+
+function limiteDeEntrada() {
+    const hoy = new Date();
+    const limite = new Date(Date.UTC(hoy.getUTCFullYear() + MAX_ANIOS_ANTELACION, hoy.getUTCMonth(), hoy.getUTCDate()));
+
+    return limite.toISOString().slice(0, 10);
+}
 
 function datosDelFormulario() {
     const datos = {};
@@ -197,8 +213,14 @@ function validar(datos) {
     if (datos.email_huesped && !EMAIL.test(datos.email_huesped)) {
         errores.email_huesped = 'El email no tiene un formato válido.';
     }
-    if (datos.fecha_entrada && datos.fecha_salida && datos.fecha_salida <= datos.fecha_entrada) {
-        errores.fecha_salida = 'Debe ser posterior a la fecha de entrada.';
+    if (datos.fecha_entrada && datos.fecha_salida) {
+        if (datos.fecha_salida <= datos.fecha_entrada) {
+            errores.fecha_salida = 'Debe ser posterior a la fecha de entrada.';
+        } else if (datos.fecha_entrada > limiteDeEntrada()) {
+            errores.fecha_entrada = `No puede ser posterior a ${formato.fecha(limiteDeEntrada())} (2 años desde hoy).`;
+        } else if (dias(datos.fecha_salida) - dias(datos.fecha_entrada) > MAX_NOCHES) {
+            errores.fecha_salida = `La estancia no puede superar ${MAX_NOCHES} noches.`;
+        }
     }
     if (datos.importe && (!IMPORTE.test(datos.importe) || !/[1-9]/.test(datos.importe))) {
         errores.importe = 'Importe mayor que 0, con hasta 2 decimales (ej. 120,50).';

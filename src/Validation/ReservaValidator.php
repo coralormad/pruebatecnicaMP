@@ -7,6 +7,7 @@ namespace App\Validation;
 use App\Exception\ValidationException;
 use App\Http\HttpException;
 use DateTimeImmutable;
+use DateTimeZone;
 
 /**
  * Valida y normaliza los datos que llegan de fuera antes de que toquen el servicio.
@@ -43,6 +44,18 @@ final class ReservaValidator
 
     /** Fecha mínima que MySQL garantiza para el tipo DATE. */
     private const FECHA_MINIMA = '1000-01-01';
+
+    /** Reglas de negocio de las fechas de una reserva nueva. */
+    public const MAX_NOCHES = 365;
+    public const MAX_ANTELACION = '+2 years';
+
+    private readonly DateTimeImmutable $hoy;
+
+    /** $hoy se puede fijar en los tests; en la aplicación es la fecha actual (UTC). */
+    public function __construct(?DateTimeImmutable $hoy = null)
+    {
+        $this->hoy = $hoy ?? new DateTimeImmutable('today', new DateTimeZone('UTC'));
+    }
 
     /**
      * @param array<string, mixed> $body cuerpo JSON ya decodificado
@@ -94,9 +107,8 @@ final class ReservaValidator
             }
         }
 
-        // Con formato AAAA-MM-DD, comparar strings equivale a comparar fechas.
-        if (isset($datos['fecha_entrada'], $datos['fecha_salida']) && $datos['fecha_salida'] <= $datos['fecha_entrada']) {
-            $errores['fecha_salida'] = 'Debe ser posterior a la fecha de entrada.';
+        if (isset($datos['fecha_entrada'], $datos['fecha_salida'])) {
+            $this->validarPeriodo($datos['fecha_entrada'], $datos['fecha_salida'], $errores);
         }
 
         // 3. Importe: texto o entero, validado como texto (nunca pasa por float).
@@ -298,6 +310,41 @@ final class ReservaValidator
         }
 
         return $valor === '' ? null : $valor;
+    }
+
+    /**
+     * Salida posterior a la entrada, estancia de como mucho MAX_NOCHES noches
+     * y entrada no más lejos que MAX_ANTELACION (evita, p. ej., una reserva en el año 9999).
+     * Una entrada en el pasado sí se permite: se pueden registrar reservas tardías.
+     *
+     * @param array<string, string> $errores
+     */
+    private function validarPeriodo(string $entrada, string $salida, array &$errores): void
+    {
+        // Con formato AAAA-MM-DD, comparar strings equivale a comparar fechas.
+        if ($salida <= $entrada) {
+            $errores['fecha_salida'] = 'Debe ser posterior a la fecha de entrada.';
+            return;
+        }
+
+        $limite = $this->hoy->modify(self::MAX_ANTELACION)->format('Y-m-d');
+        if ($entrada > $limite) {
+            $errores['fecha_entrada'] = 'No puede ser posterior a ' . self::fechaEspanola($limite) . ' (2 años desde hoy).';
+            return;
+        }
+
+        $utc = new DateTimeZone('UTC');
+        $noches = (new DateTimeImmutable($entrada, $utc))->diff(new DateTimeImmutable($salida, $utc))->days;
+        if ($noches > self::MAX_NOCHES) {
+            $errores['fecha_salida'] = 'La estancia no puede superar ' . self::MAX_NOCHES . ' noches.';
+        }
+    }
+
+    private static function fechaEspanola(string $iso): string
+    {
+        [$anio, $mes, $dia] = explode('-', $iso);
+
+        return "{$dia}/{$mes}/{$anio}";
     }
 
     /**

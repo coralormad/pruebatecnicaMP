@@ -7,6 +7,7 @@ namespace Tests\Unit\Validation;
 use App\Exception\ValidationException;
 use App\Http\HttpException;
 use App\Validation\ReservaValidator;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -21,7 +22,8 @@ final class ReservaValidatorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->validator = new ReservaValidator();
+        // Fecha fija: los límites de antelación no dependen del día en que se ejecuten los tests.
+        $this->validator = new ReservaValidator(new DateTimeImmutable('2026-10-25'));
     }
 
     /** Cuerpo válido de referencia; cada caso cambia solo lo que quiere probar. */
@@ -57,6 +59,16 @@ final class ReservaValidatorTest extends TestCase
         );
     }
 
+    public function testLimitesDeFechasIncluidos(): void
+    {
+        // 365 noches y entrada justo a 2 años son válidas; entrada en el pasado también.
+        $this->validator->validarCreacion(['fecha_entrada' => '2026-12-01', 'fecha_salida' => '2027-12-01'] + self::cuerpoValido());
+        $this->validator->validarCreacion(['fecha_entrada' => '2028-10-25', 'fecha_salida' => '2028-10-26'] + self::cuerpoValido());
+        $this->validator->validarCreacion(['fecha_entrada' => '2025-01-10', 'fecha_salida' => '2025-01-12'] + self::cuerpoValido());
+
+        $this->addToAssertionCount(3);
+    }
+
     public function testImporteEnteroSeAceptaComoTexto(): void
     {
         $datos = $this->validator->validarCreacion(['importe' => 120] + self::cuerpoValido());
@@ -90,6 +102,9 @@ final class ReservaValidatorTest extends TestCase
             'fecha anterior al año 1000' => [['fecha_entrada' => '0999-12-31'], 'fecha_entrada'],
             'salida igual a entrada'     => [['fecha_salida' => '2026-12-01'], 'fecha_salida'],
             'salida antes de entrada'    => [['fecha_salida' => '2026-11-30'], 'fecha_salida'],
+            'estancia de 366 noches'     => [['fecha_salida' => '2027-12-02'], 'fecha_salida'],
+            'entrada a más de 2 años'    => [['fecha_entrada' => '2028-10-26', 'fecha_salida' => '2028-10-27'], 'fecha_entrada'],
+            'entrada en el año 9999'     => [['fecha_entrada' => '9999-12-30', 'fecha_salida' => '9999-12-31'], 'fecha_entrada'],
             'falta el importe'           => [['importe' => null], 'importe'],
             'importe cero'               => [['importe' => '0.00'], 'importe'],
             'importe negativo'           => [['importe' => '-10'], 'importe'],
