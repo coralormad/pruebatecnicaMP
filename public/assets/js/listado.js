@@ -114,6 +114,19 @@ async function cargarReservas() {
     }
 }
 
+/**
+ * Se llama después de crear o cancelar, cuando la API ya ha guardado el cambio.
+ * Si la lista no se puede repintar (filtros no válidos, fallo de red), se avisa igualmente
+ * de que el cambio está guardado: así nadie repite la operación pensando que falló.
+ */
+async function repintarTrasGuardar(mensajeExito) {
+    const repintada = await cargarReservas();
+    const aviso = repintada
+        ? mensajeExito
+        : `${mensajeExito} No se pudo actualizar la lista: revisa los filtros y vuelve a filtrar.`;
+    avisar(avisos, aviso, 'exito');
+}
+
 formFiltros.addEventListener('submit', (evento) => {
     evento.preventDefault(); // sin JS, el formulario GET recarga la página (sigue funcionando)
     cargarReservas();
@@ -140,13 +153,13 @@ cuerpoTabla.addEventListener('click', async (evento) => {
     ocupado(boton, true);
     try {
         await api.cambiarEstado(boton.dataset.id, 'cancelada');
-        if (await cargarReservas()) {
-            avisar(avisos, `Reserva de ${boton.dataset.nombre} cancelada.`, 'exito');
-        }
     } catch (error) {
         avisar(avisos, mensajeDeError(error), 'error');
         ocupado(boton, false);
+        return;
     }
+
+    await repintarTrasGuardar(`Reserva de ${boton.dataset.nombre} cancelada.`);
 });
 
 // ------------------------------------------------------------------
@@ -233,18 +246,19 @@ formCrear.addEventListener('submit', async (evento) => {
     ocupado(boton, true);
     avisar(avisos, 'Guardando la reserva…');
 
+    let reserva;
     try {
-        const reserva = await api.crear(datos);
-        formCrear.reset();
-        if (await cargarReservas()) {
-            avisar(avisos, `Reserva #${reserva.id} de ${reserva.nombre_huesped} creada (pendiente).`, 'exito');
-        }
+        reserva = await api.crear(datos);
     } catch (error) {
         if (error.status === 422) {
             mostrarErrores(error.fields);
         }
         avisar(avisos, mensajeDeError(error), 'error');
+        return;
     } finally {
         ocupado(boton, false);
     }
+
+    formCrear.reset();
+    await repintarTrasGuardar(`Reserva #${reserva.id} de ${reserva.nombre_huesped} creada (pendiente).`);
 });
