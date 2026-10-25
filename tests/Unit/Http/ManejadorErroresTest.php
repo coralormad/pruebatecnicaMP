@@ -70,7 +70,17 @@ final class ManejadorErroresTest extends TestCase
     {
         $respuesta = $this->manejador()->responder(new ValidationException(['importe' => 'Obligatorio.']), true);
 
-        $this->assertSame(['importe' => 'Obligatorio.'], $respuesta->getPayload()['error']['fields']);
+        $this->assertEquals((object) ['importe' => 'Obligatorio.'], $respuesta->getPayload()['error']['fields']);
+    }
+
+    public function testLosCamposSonUnObjetoJsonAunqueLaClaveSeaNumerica(): void
+    {
+        $respuesta = $this->manejador()->responder(new ValidationException(['0' => 'Campo no permitido.']), true);
+
+        $this->assertSame(
+            '{"error":{"message":"Los datos enviados no son válidos.","fields":{"0":"Campo no permitido."}}}',
+            json_encode($respuesta->getPayload(), JSON_UNESCAPED_UNICODE)
+        );
     }
 
     public function testUnErrorInesperadoNoMuestraDetallesInternos(): void

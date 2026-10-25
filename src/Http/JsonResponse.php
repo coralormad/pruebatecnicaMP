@@ -35,7 +35,8 @@ final class JsonResponse implements Response
     {
         $error = ['message' => $message];
         if ($fields !== []) {
-            $error['fields'] = $fields;
+            // Siempre objeto JSON: con claves numéricas (p. ej. ?0=x) PHP lo codificaría como lista.
+            $error['fields'] = (object) $fields;
         }
 
         return new self(['error' => $error], $status, $headers);
