@@ -54,7 +54,7 @@ final class JsonResponse implements Response
 
     public function send(): void
     {
-        // Se codifica ANTES de enviar cabeceras: si falla, el manejador central aún puede responder 500.
+        // Se codifica antes de enviar cabeceras: si falla, el manejador central aún puede responder 500.
         $json = json_encode(
             $this->payload,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
