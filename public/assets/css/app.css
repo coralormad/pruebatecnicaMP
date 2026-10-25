@@ -1,4 +1,7 @@
-/* Estilos básicos y responsive. Sin librerías: el objetivo es que se entienda y no se rompa en móvil. */
+/*
+ * Estilos básicos y responsive. Sin librerías: el objetivo es que se entienda y no se rompa en móvil.
+ * Mobile first: los estilos base son los del móvil y @media (min-width: 40rem) añade el diseño de escritorio.
+ */
 
 :root {
     --texto: #1f2933;
@@ -23,6 +26,7 @@ body {
     line-height: 1.5;
     color: var(--texto);
     background: var(--fondo);
+    overflow-wrap: break-word; /* un email o una URL largos se parten en vez de ensanchar la página */
 }
 
 a { color: var(--acento); }
@@ -89,22 +93,28 @@ button {
 .resumen { font-weight: 600; }
 
 /* ---------- Tabla ---------- */
-.tabla-contenedor { overflow-x: auto; }
-.tabla {
-    width: 100%;
-    border-collapse: collapse;
+/* Base (móvil): cada fila es una tarjeta y cada celda muestra su etiqueta (data-label). */
+.tabla { width: 100%; border-collapse: collapse; }
+.tabla thead { display: none; }
+.tabla, .tabla tbody, .tabla tr, .tabla td { display: block; }
+.tabla tr {
+    margin-bottom: 0.75rem;
     background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 0.5rem;
 }
-.tabla th, .tabla td {
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--borde);
-    text-align: left;
-    vertical-align: top;
+.tabla td { padding: 0.35rem 0.75rem; text-align: left; }
+.tabla .secundario { overflow-wrap: anywhere; } /* un email largo no ensancha la columna del huésped */
+.tabla td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secundario);
 }
 .tabla th { background: #eef2f6; font-size: 0.9rem; }
-.tabla .acciones { white-space: nowrap; }
-.tabla .num { text-align: right; white-space: nowrap; }
-.vacio { text-align: center; color: var(--secundario); }
+.tabla .acciones, .tabla .num { white-space: nowrap; }
+.tabla .vacio { text-align: center; color: var(--secundario); }
 
 /* ---------- Estado ---------- */
 .estado {
@@ -114,6 +124,7 @@ button {
     font-size: 0.85rem;
     font-weight: 600;
     vertical-align: middle;
+    white-space: nowrap;
 }
 .estado--pendiente  { color: var(--pendiente);  background: var(--pendiente-fondo); }
 .estado--confirmada { color: var(--confirmada); background: var(--confirmada-fondo); }
@@ -129,12 +140,12 @@ button {
 }
 .datos {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: minmax(0, 1fr); /* minmax(0, …): la columna no crece con el contenido */
     gap: 0.4rem 1rem;
     margin: 0;
 }
 .datos dt { font-weight: 600; }
-.datos dd { margin: 0; }
+.datos dd { margin: 0 0 0.5rem; }
 .notas { white-space: pre-line; } /* respeta los saltos de línea sin usar |raw ni nl2br */
 
 .timeline {
@@ -166,25 +177,27 @@ button {
 .timeline time { color: var(--secundario); }
 .timeline span { flex-basis: 100%; }
 
-/* ---------- Móvil: cada fila de la tabla se muestra como una tarjeta ---------- */
-@media (max-width: 40rem) {
-    .tabla thead { display: none; }
-    .tabla, .tabla tbody, .tabla tr, .tabla td { display: block; width: 100%; }
-    .tabla tr {
-        margin-bottom: 0.75rem;
-        border: 1px solid var(--borde);
-        border-radius: 0.5rem;
+/* ---------- Escritorio (40rem = 640 px o más): tabla clásica y datos en dos columnas ---------- */
+@media (min-width: 40rem) {
+    /* Si aun así la tabla no cabe, se desplaza solo ella. relative: los textos .visualmente-oculto
+       (position: absolute) se quedan dentro del contenedor y no ensanchan la página. */
+    .tabla-contenedor { position: relative; overflow-x: auto; }
+    .tabla { display: table; background: var(--tarjeta); }
+    .tabla thead { display: table-header-group; }
+    .tabla tbody { display: table-row-group; }
+    .tabla tr { display: table-row; margin: 0; border: none; border-radius: 0; }
+    .tabla th, .tabla td {
+        display: table-cell;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--borde);
+        text-align: left;
+        vertical-align: top;
     }
-    .tabla td, .tabla .num { border-bottom: none; padding: 0.35rem 0.75rem; text-align: left; }
-    .tabla td[data-label]::before {
-        content: attr(data-label);
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--secundario);
-    }
-    .datos { grid-template-columns: 1fr; }
-    .datos dd { margin-bottom: 0.5rem; }
+    .tabla .num { text-align: right; }
+    .tabla td[data-label]::before { content: none; }
+
+    .datos { grid-template-columns: max-content minmax(0, 1fr); }
+    .datos dd { margin: 0; }
 }
 
 /* ---------- Interacción (Fase 7) ---------- */
