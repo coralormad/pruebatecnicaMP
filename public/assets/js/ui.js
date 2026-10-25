@@ -1,7 +1,6 @@
 /**
  * Piezas de interfaz compartidas por el listado y el detalle.
- * Regla: los datos del usuario se insertan SIEMPRE con textContent, nunca con innerHTML,
- * así un nombre como "<img onerror=...>" se muestra como texto y no se ejecuta.
+ * Los datos del usuario se insertan con textContent, nunca con innerHTML (XSS).
  */
 
 import { capitalizar } from './formato.js';

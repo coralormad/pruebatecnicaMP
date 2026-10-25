@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prueba manual de humo de la API: comprueba el código HTTP de cada caso del contrato D2.
+# Prueba manual de humo de la API: comprueba el código HTTP de cada caso del contrato de la API.
 # Uso (con el servidor arrancado: php -S localhost:8000 -t public):
 #   bash tests/api-smoke.sh [URL_BASE]
 # Crea UNA reserva de prueba en la BD de desarrollo y la confirma y cancela.

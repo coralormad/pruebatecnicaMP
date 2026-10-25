@@ -18,17 +18,12 @@ final class Database
 {
     private const REQUIRED_KEYS = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'];
 
-    /**
-     * Atajo: lee el .env y devuelve la conexión.
-     */
     public static function fromEnv(string $envFile): PDO
     {
         return self::connect(self::loadConfig($envFile));
     }
 
     /**
-     * Lee y valida el archivo de configuración.
-     *
      * @return array<string, string>
      */
     public static function loadConfig(string $envFile): array
@@ -55,8 +50,6 @@ final class Database
     }
 
     /**
-     * Abre la conexión con opciones seguras.
-     *
      * @param array<string, string> $config
      */
     public static function connect(array $config): PDO
@@ -71,7 +64,6 @@ final class Database
         return new PDO($dsn, $config['DB_USER'], $config['DB_PASS'], [
             // Cualquier error SQL lanza PDOException en lugar de devolver false en silencio.
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            // Las filas llegan como arrays asociativos: ['id' => 1, ...].
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             // Consultas preparadas reales en el servidor MySQL, no simuladas por PHP:
             // la consulta y los datos viajan por separado y los enteros llegan como int.

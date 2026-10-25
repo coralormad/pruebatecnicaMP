@@ -8,7 +8,7 @@ use RuntimeException;
 
 /**
  * Error propio de la capa HTTP (400, 405, 413, 415...).
- * Las excepciones de dominio (Validation, NotFound, Conflict) no saben nada de HTTP (D16);
+ * Las excepciones de dominio (Validation, NotFound, Conflict) no saben nada de HTTP;
  * esta sí, y el manejador central la convierte directamente en respuesta.
  */
 final class HttpException extends RuntimeException

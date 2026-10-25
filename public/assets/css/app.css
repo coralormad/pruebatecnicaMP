@@ -179,8 +179,7 @@ button {
 
 /* ---------- Escritorio (40rem = 640 px o más): tabla clásica y datos en dos columnas ---------- */
 @media (min-width: 40rem) {
-    /* Si aun así la tabla no cabe, se desplaza solo ella. relative: los textos .visualmente-oculto
-       (position: absolute) se quedan dentro del contenedor y no ensanchan la página. */
+    /* Si la tabla no cabe, se desplaza solo ella. relative: contiene el texto oculto. */
     .tabla-contenedor { position: relative; overflow-x: auto; }
     .tabla { display: table; background: var(--tarjeta); }
     .tabla thead { display: table-header-group; }
@@ -200,7 +199,7 @@ button {
     .datos dd { margin: 0; }
 }
 
-/* ---------- Interacción (Fase 7) ---------- */
+/* ---------- Interacción ---------- */
 
 /* Los controles que necesitan JavaScript solo se muestran si se ha cargado (ui.js añade la clase "js"). */
 html:not(.js) .requiere-js { display: none; }

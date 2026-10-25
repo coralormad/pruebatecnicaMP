@@ -137,8 +137,7 @@ final class ReservaService
     }
 
     /**
-     * Ejecuta $operacion dentro de una transacción:
-     * si todo va bien, confirma (commit); si algo falla, deshace todo (rollback) y relanza el error.
+     * Ejecuta $operacion en una transacción; ante cualquier error hace rollback y relanza.
      *
      * @template T
      * @param callable(): T $operacion

@@ -3,11 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Front controller: único punto de entrada PHP de la aplicación.
- * 1. Configura PHP para no mostrar errores.
- * 2. Construye las dependencias y registra las rutas (API JSON y vistas HTML).
- * 3. Despacha la petición.
- * 4. Convierte cualquier excepción en una respuesta (ManejadorErrores: JSON en /api, HTML en el resto).
+ * Front controller: configura PHP, registra las rutas y despacha la petición.
  */
 
 use App\Controller\ReservaApiController;

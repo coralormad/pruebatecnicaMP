@@ -3,7 +3,7 @@
 -- Esquema (DDL) + datos de ejemplo.
 -- Compatible con MySQL 8 y MariaDB 10.4+.
 -- Importar sobre una base de datos ya creada:
---   mysql -u root misterplan < database/reservas.sql
+--   mysql -u root -p misterplan < database/reservas.sql
 -- ATENCIÓN: elimina y recrea las tablas (reimportable).
 -- =============================================================
 

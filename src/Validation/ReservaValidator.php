@@ -310,7 +310,6 @@ final class ReservaValidator
             return false;
         }
 
-        // Con formato AAAA-MM-DD, comparar strings equivale a comparar fechas.
         // El límite superior (9999-12-31) ya lo impone el formato de 4 dígitos.
         if ($valor < self::FECHA_MINIMA) {
             return false;

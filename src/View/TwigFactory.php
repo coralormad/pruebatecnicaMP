@@ -19,16 +19,14 @@ final class TwigFactory
     public static function create(string $directorioPlantillas): Environment
     {
         $twig = new Environment(new FilesystemLoader($directorioPlantillas), [
-            // Todo {{ valor }} se escapa como HTML: <script> se muestra como texto, no se ejecuta.
+            // Autoescape HTML en todo {{ valor }} (XSS).
             'autoescape' => 'html',
-            // Una variable mal escrita lanza un error en vez de mostrarse vacía en silencio.
+            // Error si una variable no existe.
             'strict_variables' => true,
-            // Sin caché de plantillas compiladas: menos piezas para una prueba técnica.
-            // En producción se activaría con una carpeta escribible fuera de public/.
+            // Sin caché de plantillas compiladas; en producción se activaría con una carpeta escribible fuera de public/.
             'cache' => false,
         ]);
 
-        // |date convierte a esta zona horaria al mostrar.
         $twig->getExtension(CoreExtension::class)->setTimezone(self::ZONA_HORARIA);
 
         return $twig;

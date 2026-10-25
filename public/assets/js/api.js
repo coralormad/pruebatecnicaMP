@@ -31,7 +31,7 @@ async function pedir(url, { method = 'GET', body } = {}) {
     try {
         respuesta = await fetch(url, opciones);
     } catch {
-        // fetch solo falla así cuando no llega respuesta: sin conexión, servidor apagado...
+        // Sin respuesta: red caída o servidor apagado.
         throw new ApiError('No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.');
     }
 
@@ -43,7 +43,7 @@ async function pedir(url, { method = 'GET', body } = {}) {
         throw new ApiError(`El servidor devolvió una respuesta no válida (HTTP ${respuesta.status}).`, respuesta.status);
     }
 
-    // fetch NO lanza error con 400 o 500: hay que comprobar response.ok a mano.
+    // fetch solo falla si no hay respuesta; los 4xx/5xx se comprueban con response.ok.
     if (!respuesta.ok) {
         const error = json?.error ?? {};
         throw new ApiError(error.message ?? `Error HTTP ${respuesta.status}.`, respuesta.status, error.fields ?? {});
