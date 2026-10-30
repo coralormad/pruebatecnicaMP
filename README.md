@@ -1,5 +1,7 @@
 # pruebatecnicaMP — Reservas de alojamiento
 
+[![Tests](https://github.com/coralormad/pruebatecnicaMP/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/coralormad/pruebatecnicaMP/actions/workflows/tests.yml)
+
 Aplicación para gestionar reservas de alojamiento: una **API JSON en PHP nativo** (sin framework), **vistas renderizadas con Twig** y una **interfaz en JavaScript vanilla** que consume la API para filtrar, crear y cancelar reservas sin recargar la página.
 
 Prueba técnica para el puesto de Desarrollador/a Junior PHP en MisterPlan.
@@ -296,6 +298,8 @@ sed 's/^DB_NAME=.*/DB_NAME=misterplan_test/' .env > .env.testing
 
 Sin `.env.testing`, estos tests se marcan como omitidos. Si `DB_NAME` no termina en `_test`, se niegan a ejecutarse.
 
+**Integración continua.** `.github/workflows/tests.yml` ejecuta la suite completa en GitHub Actions en cada *push* y *pull request*, contra un MySQL 8 temporal. Usa `--fail-on-skipped`: si los tests de integración no pudieran conectarse y se omitieran, la ejecución fallaría en lugar de salir en verde.
+
 **Smoke test.** `tests/api-smoke.sh` comprueba 21 casos del contrato HTTP. Crea una reserva de prueba en la base de datos de desarrollo; después se puede volver a importar `database/reservas.sql`.
 
 ## Arquitectura y decisiones
@@ -387,8 +391,7 @@ La API recibe datos de fuera, así que no se fía de nada que llegue en la petic
 4. Clave de idempotencia en `POST` para que un reintento no duplique la reserva.
 5. Respuestas de error según RFC 9457 (`application/problem+json`).
 6. Caché de plantillas Twig y OPcache en producción.
-7. Integración continua (GitHub Actions) que ejecute PHPUnit contra un MySQL en cada *push*.
-8. Registro estructurado con un identificador por petición.
+7. Registro estructurado con un identificador por petición.
 
 ## Escalabilidad: 1.000 reservas por hora
 
